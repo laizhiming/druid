@@ -180,7 +180,7 @@ public class PGExprParser extends SQLExprParser {
         if (expr.getClass() == SQLIdentifierExpr.class) {
             String ident = ((SQLIdentifierExpr)expr).getName();
 
-            if (lexer.token() == Token.COMMA) {
+            if (lexer.token() == Token.COMMA || lexer.token() == Token.RPAREN) {
                 return super.primaryRest(expr);
             }
 
@@ -333,5 +333,16 @@ public class PGExprParser extends SQLExprParser {
             break;
         }
         return alias;
+    }
+
+    protected void filter(SQLAggregateExpr x) {
+        if (lexer.identifierEquals(FnvHash.Constants.FILTER)) {
+            lexer.nextToken();
+            accept(Token.LPAREN);
+            accept(Token.WHERE);
+            SQLExpr filter = this.expr();
+            accept(Token.RPAREN);
+            x.setFilter(filter);
+        }
     }
 }

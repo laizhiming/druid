@@ -447,6 +447,7 @@ public final class FnvHash {
         long RAW = fnv1a_64_lower("RAW");
         long LONG_RAW = fnv1a_64_lower("LONG RAW");
         long LONG = fnv1a_64_lower("LONG");
+        long BYTE = fnv1a_64_lower("BYTE");
         long ROWNUM = fnv1a_64_lower("ROWNUM");
         long SYSDATE = fnv1a_64_lower("SYSDATE");
         long SQLCODE = fnv1a_64_lower("SQLCODE");
@@ -582,6 +583,7 @@ public final class FnvHash {
         long SCHEDULE = fnv1a_64_lower("SCHEDULE");
         long COMPLETION = fnv1a_64_lower("COMPLETION");
         long RENAME = fnv1a_64_lower("RENAME");
+        long DUMP = fnv1a_64_lower("DUMP");
         long AT = fnv1a_64_lower("AT");
         long LANGUAGE = fnv1a_64_lower("LANGUAGE");
         long LOGFILE = fnv1a_64_lower("LOGFILE");
@@ -641,5 +643,16 @@ public final class FnvHash {
         long CHECKSUM = fnv1a_64_lower("CHECKSUM");
         long ROUTINE = fnv1a_64_lower("ROUTINE");
         long DATE_FORMAT = fnv1a_64_lower("DATE_FORMAT");
+        long DBPARTITION = fnv1a_64_lower("DBPARTITION");
+        long TBPARTITION = fnv1a_64_lower("TBPARTITION");
+        long TBPARTITIONS = fnv1a_64_lower("TBPARTITIONS");
+        long SOUNDS = fnv1a_64_lower("SOUNDS");
+        long WINDOW = fnv1a_64_lower("WINDOW");
+        long GENERATED = fnv1a_64_lower("GENERATED");
+        long ALWAYS = fnv1a_64_lower("ALWAYS");
+        long INCREMENT = fnv1a_64_lower("INCREMENT");
+
+        long OVERWRITE = fnv1a_64_lower("OVERWRITE");
+        long FILTER = fnv1a_64_lower("FILTER");
     }
 }
