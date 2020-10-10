@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,18 @@
  */
 package com.alibaba.druid.sql.ast.expr;
 
+import com.alibaba.druid.FastsqlException;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
+public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName, Comparable<SQLIdentifierExpr> {
     protected String    name;
     private   long      hashCode64;
 
@@ -83,8 +85,12 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
         return hashCode64;
     }
 
-    public void output(StringBuffer buf) {
-        buf.append(this.name);
+    public void output(Appendable buf) {
+        try {
+            buf.append(this.name);
+        } catch (IOException ex) {
+            throw new FastsqlException("output error", ex);
+        }
     }
 
     protected void accept0(SQLASTVisitor visitor) {
@@ -117,6 +123,11 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
         SQLIdentifierExpr x = new SQLIdentifierExpr(this.name, hashCode64);
         x.resolvedColumn = resolvedColumn;
         x.resolvedOwnerObject = resolvedOwnerObject;
+
+        if (hint != null) {
+            x.hint = hint.clone();
+        }
+
         return x;
     }
 
@@ -137,6 +148,24 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
             return (SQLColumnDefinition) resolvedColumn;
         }
 
+        if (resolvedColumn instanceof SQLSelectItem) {
+            SQLSelectItem selectItem = (SQLSelectItem) resolvedColumn;
+            final SQLExpr expr = selectItem.getExpr();
+            if (expr instanceof SQLIdentifierExpr) {
+                return ((SQLIdentifierExpr) expr).getResolvedColumn();
+            } else if (expr instanceof SQLPropertyExpr) {
+                return ((SQLPropertyExpr) expr).getResolvedColumn();
+            }
+        }
+
+        return null;
+    }
+
+    public SQLSelectItem getResolvedSelectItem() {
+        if (resolvedColumn instanceof SQLSelectItem) {
+            return (SQLSelectItem) resolvedColumn;
+        }
+
         return null;
     }
 
@@ -146,6 +175,10 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
 
     public void setResolvedColumn(SQLColumnDefinition resolvedColumn) {
         this.resolvedColumn = resolvedColumn;
+    }
+
+    public void setResolvedColumn(SQLSelectItem selectItem) {
+        this.resolvedColumn = selectItem;
     }
 
     public SQLTableSource getResolvedTableSource() {
@@ -196,13 +229,24 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
             return resolvedColumn.getDataType();
         }
 
-        if (resolvedOwnerObject != null
-                && resolvedOwnerObject instanceof SQLSubqueryTableSource) {
+        if (this.resolvedColumn instanceof SQLSelectItem) {
+            return ((SQLSelectItem) this.resolvedColumn).computeDataType();
+        }
+
+        SQLSelectQueryBlock queryBlock = null;
+        if (resolvedOwnerObject instanceof SQLSubqueryTableSource) {
             SQLSelect select = ((SQLSubqueryTableSource) resolvedOwnerObject).getSelect();
-            SQLSelectQueryBlock queryBlock = select.getFirstQueryBlock();
-            if (queryBlock == null) {
-                return null;
-            }
+            queryBlock = select.getFirstQueryBlock();
+        } else if (resolvedOwnerObject instanceof SQLUnionQueryTableSource) {
+            SQLUnionQuery union = ((SQLUnionQueryTableSource) resolvedOwnerObject).getUnion();
+            queryBlock = union.getFirstQueryBlock();
+        } else if (resolvedOwnerObject instanceof SQLWithSubqueryClause.Entry) {
+            queryBlock = ((SQLWithSubqueryClause.Entry) resolvedOwnerObject)
+                    .getSubQuery()
+                    .getFirstQueryBlock();
+        }
+
+        if (queryBlock != null) {
             SQLSelectItem selectItem = queryBlock.findSelectItem(nameHashCode64());
             if (selectItem != null) {
                 return selectItem.computeDataType();
@@ -227,5 +271,12 @@ public final class SQLIdentifierExpr extends SQLExprImpl implements SQLName {
         }
         SQLIdentifierExpr ident = (SQLIdentifierExpr) expr;
         return ident.getName().equalsIgnoreCase(name);
+    }
+
+    @Override
+    public int compareTo(SQLIdentifierExpr o) {
+        return this.normalizedName()
+                .compareTo(
+                        o.normalizedName());
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ public class MySqlSelectTest_40 extends MysqlTest {
         {
             String output = SQLUtils.toMySqlString(stmt);
             Assert.assertEquals("/*0abcde*/\n" +
-                            "SELECT MAX(id)\n" +
+                            "SELECT max(id)\n" +
                             "FROM base_request_log", //
                                 output);
         }
@@ -64,7 +64,7 @@ public class MySqlSelectTest_40 extends MysqlTest {
 
         {
             String output = SQLUtils.toMySqlString(stmt, new SQLUtils.FormatOption(true, true, true));
-            Assert.assertEquals("SELECT MAX(id)\n" +
+            Assert.assertEquals("SELECT max(id)\n" +
                             "FROM base_request_log", //
                     output);
         }

@@ -16,7 +16,6 @@
 package com.alibaba.druid.pool.ha.selector;
 
 import javax.sql.DataSource;
-import java.util.Map;
 
 /**
  * Interface for those selector to implement.
@@ -25,7 +24,30 @@ import java.util.Map;
  * @author DigitalSonic
  */
 public interface DataSourceSelector {
+    /**
+     * Return a DataSource according to the implemention.
+     */
     DataSource get();
+
+    /**
+     * Set the target DataSource name to return.
+     * Wether to use this or not, it's decided by the implemention.
+     */
     void setTarget(String name);
-    boolean isSame(String name);
+
+    /**
+     * Return the name of this DataSourceSelector.
+     * e.g. byName
+     */
+    String getName();
+
+    /**
+     * Init the DataSourceSelector before use it.
+     */
+    void init();
+
+    /**
+     * Destroy the DataSourceSelector, maybe interrupt the Thread.
+     */
+    void destroy();
 }

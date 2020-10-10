@@ -37,7 +37,8 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.*;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
@@ -49,7 +50,9 @@ import javax.security.auth.callback.NameCallback;
 import javax.security.auth.callback.PasswordCallback;
 import javax.sql.DataSource;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.DruidRuntimeException;
+import com.alibaba.druid.VERSION;
 import com.alibaba.druid.filter.Filter;
 import com.alibaba.druid.filter.FilterChainImpl;
 import com.alibaba.druid.filter.FilterManager;
@@ -61,7 +64,13 @@ import com.alibaba.druid.stat.JdbcSqlStat;
 import com.alibaba.druid.stat.JdbcStatManager;
 import com.alibaba.druid.support.logging.Log;
 import com.alibaba.druid.support.logging.LogFactory;
-import com.alibaba.druid.util.*;
+import com.alibaba.druid.util.DruidPasswordCallback;
+import com.alibaba.druid.util.Histogram;
+import com.alibaba.druid.util.JdbcConstants;
+import com.alibaba.druid.util.JdbcUtils;
+import com.alibaba.druid.util.MySqlUtils;
+import com.alibaba.druid.util.StringUtils;
+import com.alibaba.druid.util.Utils;
 
 /**
  * @author wenshao [szujobs@hotmail.com]
@@ -144,7 +153,9 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     protected volatile int                             numTestsPerEvictionRun                    = DEFAULT_NUM_TESTS_PER_EVICTION_RUN;
     protected volatile long                            minEvictableIdleTimeMillis                = DEFAULT_MIN_EVICTABLE_IDLE_TIME_MILLIS;
     protected volatile long                            maxEvictableIdleTimeMillis                = DEFAULT_MAX_EVICTABLE_IDLE_TIME_MILLIS;
+    protected volatile long                            keepAliveBetweenTimeMillis                = DEFAULT_TIME_BETWEEN_EVICTION_RUNS_MILLIS * 2;
     protected volatile long                            phyTimeoutMillis                          = DEFAULT_PHY_TIMEOUT_MILLIS;
+    protected volatile long                            phyMaxUseCount                            = -1;
 
     protected volatile boolean                         removeAbandoned;
     protected volatile long                            removeAbandonedTimeoutMillis              = 300 * 1000;
@@ -154,7 +165,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
 
     protected volatile List<String>                    connectionInitSqls;
 
-    protected volatile String                          dbType;
+    protected volatile String                          dbTypeName;
 
     protected volatile long                            timeBetweenConnectErrorMillis             = DEFAULT_TIME_BETWEEN_CONNECT_ERROR_MILLIS;
 
@@ -239,12 +250,14 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     protected volatile int                             directCreateCount                         = 0;
     protected volatile long                            createCount                               = 0L;
     protected volatile long                            destroyCount                              = 0L;
+    protected volatile long                            createStartNanos                          = 0L;
 
     final static AtomicIntegerFieldUpdater<DruidAbstractDataSource> createErrorCountUpdater      = AtomicIntegerFieldUpdater.newUpdater(DruidAbstractDataSource.class, "createErrorCount");
     final static AtomicIntegerFieldUpdater<DruidAbstractDataSource> creatingCountUpdater         = AtomicIntegerFieldUpdater.newUpdater(DruidAbstractDataSource.class, "creatingCount");
     final static AtomicIntegerFieldUpdater<DruidAbstractDataSource> directCreateCountUpdater     = AtomicIntegerFieldUpdater.newUpdater(DruidAbstractDataSource.class, "directCreateCount");
     final static AtomicLongFieldUpdater<DruidAbstractDataSource>    createCountUpdater           = AtomicLongFieldUpdater.newUpdater(DruidAbstractDataSource.class, "createCount");
     final static AtomicLongFieldUpdater<DruidAbstractDataSource>    destroyCountUpdater          = AtomicLongFieldUpdater.newUpdater(DruidAbstractDataSource.class, "destroyCount");
+    final static AtomicLongFieldUpdater<DruidAbstractDataSource> createStartNanosUpdater         = AtomicLongFieldUpdater.newUpdater(DruidAbstractDataSource.class, "createStartNanos");
 
     private Boolean                                    useUnfairLock                             = null;
     private boolean                                    useLocalSessionState                      = true;
@@ -255,14 +268,20 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     private boolean                                    asyncCloseConnectionEnable                = false;
     protected int                                      maxCreateTaskCount                        = 3;
     protected boolean                                  failFast                                  = false;
-    protected AtomicBoolean                            failContinuous                            = new AtomicBoolean(false);
+    protected volatile int                             failContinuous                            = 0;
+    protected volatile long                            failContinuousTimeMillis                  = 0L;
     protected ScheduledExecutorService                 destroyScheduler;
     protected ScheduledExecutorService                 createScheduler;
+
+    final static AtomicLongFieldUpdater<DruidAbstractDataSource> failContinuousTimeMillisUpdater = AtomicLongFieldUpdater.newUpdater(DruidAbstractDataSource.class, "failContinuousTimeMillis");
+    final static AtomicIntegerFieldUpdater<DruidAbstractDataSource> failContinuousUpdater        = AtomicIntegerFieldUpdater.newUpdater(DruidAbstractDataSource.class, "failContinuous");
 
     protected boolean                                  initVariants                              = false;
     protected boolean                                  initGlobalVariants                        = false;
     protected volatile boolean                         onFatalError                              = false;
     protected volatile int                             onFatalErrorMaxActive                     = 0;
+    protected volatile int                             fatalErrorCount                           = 0;
+    protected volatile int                             fatalErrorCountLastShrink                 = 0;
     protected volatile long                            lastFatalErrorTimeMillis                  = 0;
     protected volatile String                          lastFatalErrorSql                         = null;
     protected volatile Throwable                       lastFatalError                            = null;
@@ -321,11 +340,11 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     }
 
     public boolean isUseUnfairLock() {
-        return lock.isFair();
+        return !lock.isFair();
     }
 
     public void setUseUnfairLock(boolean useUnfairLock) {
-        if (lock.isFair() == !useUnfairLock) {
+        if (lock.isFair() == !useUnfairLock && this.useUnfairLock != null) {
             return;
         }
 
@@ -642,11 +661,19 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     }
 
     public String getDbType() {
-        return dbType;
+        return dbTypeName;
+    }
+
+    public void setDbType(DbType dbType) {
+        if (dbType == null) {
+            this.dbTypeName = null;
+        } else {
+            this.dbTypeName = dbType.name();
+        }
     }
 
     public void setDbType(String dbType) {
-        this.dbType = dbType;
+        this.dbTypeName = dbType;
     }
 
     public void addConnectionProperty(String name, String value) {
@@ -753,7 +780,19 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
         
         this.minEvictableIdleTimeMillis = minEvictableIdleTimeMillis;
     }
-    
+
+    public long getKeepAliveBetweenTimeMillis() {
+        return keepAliveBetweenTimeMillis;
+    }
+
+    public void setKeepAliveBetweenTimeMillis(long keepAliveBetweenTimeMillis) {
+        if (keepAliveBetweenTimeMillis < 1000 * 30) {
+            LOG.error("keepAliveBetweenTimeMillis should be greater than 30000");
+        }
+
+        this.keepAliveBetweenTimeMillis = keepAliveBetweenTimeMillis;
+    }
+
     public long getMaxEvictableIdleTimeMillis() {
         return maxEvictableIdleTimeMillis;
     }
@@ -764,7 +803,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
             LOG.error("maxEvictableIdleTimeMillis should be greater than 30000");
         }
         
-        if (maxEvictableIdleTimeMillis < minEvictableIdleTimeMillis) {
+        if (inited && maxEvictableIdleTimeMillis < minEvictableIdleTimeMillis) {
             throw new IllegalArgumentException("maxEvictableIdleTimeMillis must be grater than minEvictableIdleTimeMillis");
         }
         
@@ -777,6 +816,14 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
 
     public void setPhyTimeoutMillis(long phyTimeoutMillis) {
         this.phyTimeoutMillis = phyTimeoutMillis;
+    }
+
+    public long getPhyMaxUseCount() {
+        return phyMaxUseCount;
+    }
+
+    public void setPhyMaxUseCount(long phyMaxUseCount) {
+        this.phyMaxUseCount = phyMaxUseCount;
     }
 
     public int getNumTestsPerEvictionRun() {
@@ -820,7 +867,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     }
 
     public void setValidationQueryTimeout(int validationQueryTimeout) {
-        if (validationQueryTimeout < 0 && JdbcConstants.SQL_SERVER.equals(dbType)) {
+        if (validationQueryTimeout < 0 && JdbcConstants.SQL_SERVER.equals(dbTypeName)) {
             LOG.error("validationQueryTimeout should be >= 0");
         }
         this.validationQueryTimeout = validationQueryTimeout;
@@ -1345,6 +1392,17 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
             Exception error = null;
             try {
                 result = validConnectionChecker.isValidConnection(conn, validationQuery, validationQueryTimeout);
+
+                if (result && onFatalError) {
+                    lock.lock();
+                    try {
+                        if (onFatalError) {
+                            onFatalError = false;
+                        }
+                    } finally {
+                        lock.unlock();
+                    }
+                }
             } catch (SQLException ex) {
                 throw ex;
             } catch (Exception ex) {
@@ -1371,6 +1429,18 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
                 rs = stmt.executeQuery(query);
                 if (!rs.next()) {
                     throw new SQLException("validationQuery didn't return a row");
+                }
+
+                if (onFatalError) {
+                    lock.lock();
+                    try {
+                        if (onFatalError) {
+                            onFatalError = false;
+                        }
+                    }
+                    finally {
+                        lock.unlock();
+                    }
                 }
             } finally {
                 JdbcUtils.close(rs);
@@ -1402,6 +1472,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
                 long currentTimeMillis = System.currentTimeMillis();
                 if (holder != null) {
                     holder.lastValidTimeMillis = currentTimeMillis;
+                    holder.lastExecTimeMillis = currentTimeMillis;
                 }
 
                 if (valid && isMySql) { // unexcepted branch
@@ -1410,14 +1481,25 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
                         long mysqlIdleMillis = currentTimeMillis - lastPacketReceivedTimeMs;
                         if (lastPacketReceivedTimeMs > 0 //
                                 && mysqlIdleMillis >= timeBetweenEvictionRunsMillis) {
-                            discardConnection(conn);
+                            discardConnection(holder);
                             String errorMsg = "discard long time none received connection. "
                                     + ", jdbcUrl : " + jdbcUrl
-                                    + ", jdbcUrl : " + jdbcUrl
+                                    + ", version : " + VERSION.getVersionNumber()
                                     + ", lastPacketReceivedIdleMillis : " + mysqlIdleMillis;
-                            LOG.error(errorMsg);
+                            LOG.warn(errorMsg);
                             return false;
                         }
+                    }
+                }
+
+                if (valid && onFatalError) {
+                    lock.lock();
+                    try {
+                        if (onFatalError) {
+                            onFatalError = false;
+                        }
+                    } finally {
+                        lock.unlock();
                     }
                 }
 
@@ -1446,6 +1528,17 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
             } finally {
                 JdbcUtils.close(rset);
                 JdbcUtils.close(stmt);
+            }
+
+            if (onFatalError) {
+                lock.lock();
+                try {
+                    if (onFatalError) {
+                        onFatalError = false;
+                    }
+                } finally {
+                    lock.unlock();
+                }
             }
 
             return true;
@@ -1619,6 +1712,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
                 ? new HashMap<String, Object>()
                 : null;
 
+        createStartNanosUpdater.set(this, connectStartNanos);
         creatingCountUpdater.incrementAndGet(this);
         try {
             conn = createPhysicalConnection(url, physicalConnectProperties);
@@ -1682,9 +1776,34 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
             lock.unlock();
         }
     }
-    
+
+    public boolean isFailContinuous() {
+        return failContinuousUpdater.get(this) == 1;
+    }
+
     protected void setFailContinuous(boolean fail) {
-        failContinuous.set(fail);
+        if (fail) {
+            failContinuousTimeMillisUpdater.set(this, System.currentTimeMillis());
+        } else {
+            failContinuousTimeMillisUpdater.set(this, 0L);
+        }
+
+        boolean currentState = failContinuousUpdater.get(this) == 1;
+        if (currentState == fail) {
+            return;
+        }
+
+        if (fail) {
+            failContinuousUpdater.set(this, 1);
+            if (LOG.isInfoEnabled()) {
+                LOG.info("{dataSource-" + this.getID() + "} failContinuous is true");
+            }
+        } else {
+            failContinuousUpdater.set(this, 0);
+            if (LOG.isInfoEnabled()) {
+                LOG.info("{dataSource-" + this.getID() + "} failContinuous is false");
+            }
+        }
     }
 
     public void initPhysicalConnection(Connection conn) throws SQLException {
@@ -1731,8 +1850,8 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
                 stmt.execute(sql);
             }
 
-            if (JdbcConstants.MYSQL.equals(dbType)
-                ||JdbcConstants.ALIYUN_ADS.equals(dbType)) {
+            DbType dbType = DbType.of(this.dbTypeName);
+            if (dbType == DbType.mysql || dbType == DbType.ads) {
                 if (variables != null) {
                     ResultSet rs = null;
                     try {
@@ -1938,7 +2057,7 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
         if (connectionInitSqls != null) {
             to.connectionInitSqls = new ArrayList<String>(this.connectionInitSqls);
         }
-        to.dbType = this.dbType;
+        to.dbTypeName = this.dbTypeName;
         to.timeBetweenConnectErrorMillis = this.timeBetweenConnectErrorMillis;
         to.validConnectionChecker = this.validConnectionChecker;
         to.connectionErrorRetryAttempts = this.connectionErrorRetryAttempts;
@@ -1953,7 +2072,10 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
     }
     
     public abstract void discardConnection(Connection realConnection);
-    
+
+    public void discardConnection(DruidConnectionHolder holder) {
+        discardConnection(holder.getConnection());
+    }
 
     public boolean isAsyncCloseConnectionEnable() {
         if (isRemoveAbandoned()) {
@@ -2049,6 +2171,8 @@ public abstract class DruidAbstractDataSource extends WrapperAdapter implements 
         private long validatedNanos;
         private Map<String, Object> vairiables;
         private Map<String, Object> globalVairiables;
+
+        long createTaskId;
 
         public PhysicalConnectionInfo(Connection connection //
                 , long connectStartNanos //

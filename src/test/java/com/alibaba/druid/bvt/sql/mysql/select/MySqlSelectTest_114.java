@@ -15,6 +15,7 @@
  */
 package com.alibaba.druid.bvt.sql.mysql.select;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
@@ -30,7 +31,7 @@ public class MySqlSelectTest_114 extends TestCase {
     public void test_0() throws Exception {
         String sql = "select count(0) from (select id from auth WHERE 1=1 AND/**/b=2 ORDER BY create_time DESC) as total";
 
-        List<SQLStatement> statementList = SQLUtils.parseStatements(sql, JdbcConstants.MYSQL);
+        List<SQLStatement> statementList = SQLUtils.parseStatements(sql, DbType.mysql);
         assertEquals(1, statementList.size());
         SQLSelectStatement stmt = (SQLSelectStatement) statementList.get(0);
 //        print(statementList);
@@ -48,7 +49,7 @@ public class MySqlSelectTest_114 extends TestCase {
         assertEquals(1, visitor.getConditions().size());
         assertEquals(1, visitor.getOrderByColumns().size());
 
-        assertEquals("SELECT COUNT(0)\n" +
+        assertEquals("SELECT count(0)\n" +
                 "FROM (\n" +
                 "\tSELECT id\n" +
                 "\tFROM auth\n" +
@@ -59,13 +60,12 @@ public class MySqlSelectTest_114 extends TestCase {
                 ") total", stmt.toString());
 
         String psql = ParameterizedOutputVisitorUtils.parameterize(sql, JdbcConstants.MYSQL);
-        assertEquals("SELECT COUNT(0)\n" +
+        assertEquals("SELECT count(0)\n" +
                 "FROM (\n" +
                 "\tSELECT id\n" +
                 "\tFROM auth\n" +
                 "\tWHERE 1 = 1\n" +
-                "\t\tAND \n" +
-                "\t\tb = ?\n" +
+                "\t\tAND b = ?\n" +
                 "\tORDER BY create_time DESC\n" +
                 ") total", psql);
     }

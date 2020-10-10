@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,7 @@
  */
 package com.alibaba.druid.sql.dialect.postgresql.parser;
 
-import java.util.List;
-
-import com.alibaba.druid.sql.ast.SQLExpr;
-import com.alibaba.druid.sql.ast.SQLLimit;
-import com.alibaba.druid.sql.ast.SQLParameter;
-import com.alibaba.druid.sql.ast.SQLSetQuantifier;
+import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
 import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
@@ -29,8 +24,10 @@ import com.alibaba.druid.sql.ast.statement.SQLTableSource;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGFunctionTableSource;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.IntoOption;
-import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGValuesQuery;
+import com.alibaba.druid.sql.ast.statement.SQLValuesQuery;
 import com.alibaba.druid.sql.parser.*;
+
+import java.util.List;
 
 public class PGSelectParser extends SQLSelectParser {
 
@@ -51,14 +48,9 @@ public class PGSelectParser extends SQLSelectParser {
     }
 
     @Override
-    public SQLSelectQuery query() {
+    public SQLSelectQuery query(SQLObject parent, boolean acceptUnion) {
         if (lexer.token() == Token.VALUES) {
-            lexer.nextToken();
-            accept(Token.LPAREN);
-            PGValuesQuery valuesQuery = new PGValuesQuery();
-            this.exprParser.exprList(valuesQuery.getValues(), valuesQuery);
-            accept(Token.RPAREN);
-            return queryRest(valuesQuery);
+            return valuesQuery(acceptUnion);
         }
 
         if (lexer.token() == Token.LPAREN) {
@@ -70,10 +62,14 @@ public class PGSelectParser extends SQLSelectParser {
             }
             accept(Token.RPAREN);
 
-            return queryRest(select);
+            return queryRest(select, acceptUnion);
         }
 
         PGSelectQueryBlock queryBlock = new PGSelectQueryBlock();
+
+        if (lexer.hasComment() && lexer.isKeepComments()) {
+            queryBlock.addBeforeComment(lexer.readAndResetComments());
+        }
 
         if (lexer.token() == Token.SELECT) {
             lexer.nextToken();
@@ -240,10 +236,10 @@ public class PGSelectParser extends SQLSelectParser {
             queryBlock.setForClause(forClause);
         }
 
-        return queryRest(queryBlock);
+        return queryRest(queryBlock, acceptUnion);
     }
 
-    protected SQLTableSource parseTableSourceRest(SQLTableSource tableSource) {
+    public SQLTableSource parseTableSourceRest(SQLTableSource tableSource) {
         if (lexer.token() == Token.AS && tableSource instanceof SQLExprTableSource) {
             lexer.nextToken();
 

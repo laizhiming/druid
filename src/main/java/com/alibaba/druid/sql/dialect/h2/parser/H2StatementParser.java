@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,18 @@
  */
 package com.alibaba.druid.sql.dialect.h2.parser;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.ast.expr.SQLQueryExpr;
+import com.alibaba.druid.sql.ast.statement.SQLInsertInto;
 import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
 import com.alibaba.druid.sql.ast.statement.SQLReplaceStatement;
 import com.alibaba.druid.sql.ast.statement.SQLSelect;
-import com.alibaba.druid.sql.parser.*;
-import com.alibaba.druid.util.FnvHash;
-import com.alibaba.druid.util.JdbcConstants;
+import com.alibaba.druid.sql.parser.Lexer;
+import com.alibaba.druid.sql.parser.SQLParserFeature;
+import com.alibaba.druid.sql.parser.SQLStatementParser;
+import com.alibaba.druid.sql.parser.Token;
 
 public class H2StatementParser extends SQLStatementParser {
     public H2StatementParser(String sql) {
@@ -47,7 +50,7 @@ public class H2StatementParser extends SQLStatementParser {
         accept(Token.INTO);
 
         SQLReplaceStatement stmt = new SQLReplaceStatement();
-        stmt.setDbType(JdbcConstants.H2);
+        stmt.setDbType(DbType.h2);
 
         SQLName tableName = exprParser.name();
         stmt.setTableName(tableName);
@@ -62,7 +65,7 @@ public class H2StatementParser extends SQLStatementParser {
         if (lexer.token() == Token.VALUES || lexer.identifierEquals("VALUE")) {
             lexer.nextToken();
 
-            parseValueClause(stmt.getValuesList(), 0, stmt);
+            parseValueClause(stmt.getValuesList(), null,0, stmt);
         } else if (lexer.token() == Token.SELECT) {
             SQLQueryExpr queryExpr = (SQLQueryExpr) this.exprParser.expr();
             stmt.setQuery(queryExpr);
@@ -73,5 +76,36 @@ public class H2StatementParser extends SQLStatementParser {
         }
 
         return stmt;
+    }
+
+    @Override
+    protected void parseInsert0(SQLInsertInto insertStatement, boolean acceptSubQuery) {
+        super.parseInsert0(insertStatement, acceptSubQuery);
+        parseSetStatement(insertStatement);
+    }
+
+    private void parseSetStatement(SQLInsertInto insertStatement) {
+        if (lexer.token() == Token.SET) {
+            lexer.nextToken();
+            SQLInsertStatement.ValuesClause values = new SQLInsertStatement.ValuesClause();
+            insertStatement.addValueCause(values);
+
+            for (; ; ) {
+                SQLName name = this.exprParser.name();
+                insertStatement.addColumn(name);
+                if (lexer.token() == Token.EQ) {
+                    lexer.nextToken();
+                } else {
+                    accept(Token.COLONEQ);
+                }
+                values.addValue(this.exprParser.expr());
+
+                if (lexer.token() == Token.COMMA) {
+                    lexer.nextToken();
+                    continue;
+                }
+                break;
+            }
+        }
     }
 }

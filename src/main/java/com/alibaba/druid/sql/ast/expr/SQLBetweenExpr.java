@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,18 @@
  */
 package com.alibaba.druid.sql.ast.expr;
 
-import java.io.Serializable;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-import com.alibaba.druid.sql.ast.*;
+import com.alibaba.druid.sql.ast.SQLDataType;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLExprImpl;
+import com.alibaba.druid.sql.ast.SQLObject;
+import com.alibaba.druid.sql.ast.SQLReplaceable;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
-public class SQLBetweenExpr extends SQLExprImpl implements Serializable, SQLReplaceable {
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+
+public class SQLBetweenExpr extends SQLExprImpl implements SQLReplaceable, Serializable {
 
     private static final long serialVersionUID = 1L;
     public SQLExpr            testExpr;
@@ -63,9 +66,17 @@ public class SQLBetweenExpr extends SQLExprImpl implements Serializable, SQLRepl
 
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
-            acceptChild(visitor, this.testExpr);
-            acceptChild(visitor, this.beginExpr);
-            acceptChild(visitor, this.endExpr);
+            if (this.testExpr != null) {
+                this.testExpr.accept(visitor);
+            }
+
+            if (this.beginExpr != null) {
+                this.beginExpr.accept(visitor);
+            }
+
+            if (this.endExpr != null) {
+                this.endExpr.accept(visitor);
+            }
         }
         visitor.endVisit(this);
     }
@@ -165,8 +176,9 @@ public class SQLBetweenExpr extends SQLExprImpl implements Serializable, SQLRepl
         return true;
     }
 
+    @Override
     public SQLDataType computeDataType() {
-        return SQLBooleanExpr.DEFAULT_DATA_TYPE;
+        return SQLBooleanExpr.DATA_TYPE;
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -329,7 +329,7 @@ public class OracleSelectTest78 extends OracleTest {
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
         assertEquals(10, visitor.getTables().size());
-        assertEquals(65, visitor.getColumns().size());
+        assertEquals(46, visitor.getColumns().size());
         assertEquals(30, visitor.getConditions().size());
         assertEquals(7, visitor.getRelationships().size());
         assertEquals(2, visitor.getOrderByColumns().size());

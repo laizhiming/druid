@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,15 +59,15 @@ public class OdpsSelectTest25 extends TestCase {
                 "GROUP BY tt.os,\n" +
                 "         tt.ver;";//
         assertEquals("INSERT OVERWRITE TABLE ids_openapp_dau_d PARTITION (dt='${lastday}')\n" +
-                "SELECT tt.os, tt.ver, COUNT(1) AS tt_user\n" +
-                "\t, SUM(tt.tt_cnt) AS tt_cnt\n" +
-                "\t, COUNT(IF(tt.tmp_cnt > 0, 1, NULL)) AS tmp_user\n" +
-                "\t, SUM(tt.tmp_cnt) AS tmp_cnt\n" +
-                "\t, COUNT(IF(tt.formal_cnt > 0, 1, NULL)) AS formal_user\n" +
-                "\t, SUM(tt.formal_cnt) AS formal_cnt\n" +
+                "SELECT tt.os, tt.ver, count(1) AS tt_user\n" +
+                "\t, sum(tt.tt_cnt) AS tt_cnt\n" +
+                "\t, count(IF(tt.tmp_cnt > 0, 1, NULL)) AS tmp_user\n" +
+                "\t, sum(tt.tmp_cnt) AS tmp_cnt\n" +
+                "\t, count(IF(tt.formal_cnt > 0, 1, NULL)) AS formal_user\n" +
+                "\t, sum(tt.formal_cnt) AS formal_cnt\n" +
                 "FROM (\n" +
-                "\tSELECT t1.uid, t2.os, t3.ver, COUNT(1) AS tt_cnt\n" +
-                "\t\t, COUNT(t1.tmp) AS tmp_cnt, COUNT(t1.formal) AS formal_cnt\n" +
+                "\tSELECT t1.uid, t2.os, t3.ver, count(1) AS tt_cnt\n" +
+                "\t\t, count(t1.tmp) AS tmp_cnt, count(t1.formal) AS formal_cnt\n" +
                 "\tFROM (\n" +
                 "\t\tSELECT uid, array(pv, 'all') AS os\n" +
                 "\t\t\t, array(v, 'all') AS ver\n" +
@@ -115,28 +115,28 @@ public class OdpsSelectTest25 extends TestCase {
                 "and tt.ver <> 'all')\n" +
                 "group by tt.os, \n" +
                 "\ttt.ver;", SQLUtils.formatOdps(sql, SQLUtils.DEFAULT_LCASE_FORMAT_OPTION));
-        
+
         List<SQLStatement> statementList = SQLUtils.parseStatements(sql, JdbcConstants.ODPS);
         SQLStatement stmt = statementList.get(0);
 
         System.out.println(stmt);
 
         assertEquals(1, statementList.size());
-        
+
         SchemaStatVisitor visitor = SQLUtils.createSchemaStatVisitor(JdbcConstants.ODPS);
         stmt.accept(visitor);
-        
+
         System.out.println("Tables : " + visitor.getTables());
-      System.out.println("fields : " + visitor.getColumns());
+        System.out.println("fields : " + visitor.getColumns());
 //      System.out.println("coditions : " + visitor.getConditions());
 //      System.out.println("orderBy : " + visitor.getOrderByColumns());
-        
+
         assertEquals(2, visitor.getTables().size());
-        assertEquals(6, visitor.getColumns().size());
+        assertEquals(8, visitor.getColumns().size());
         assertEquals(4, visitor.getConditions().size());
 
 //        System.out.println(SQLUtils.formatOdps(sql));
-        
+
         assertTrue(visitor.containsColumn("ids_openapp_dau_d", "dt"));
         assertTrue(visitor.containsColumn("openapp_log_d", "uid"));
         assertTrue(visitor.containsColumn("openapp_log_d", "pv"));

@@ -15,12 +15,9 @@
  */
 package com.alibaba.druid.support.http.stat;
 
-import com.alibaba.druid.support.logging.Log;
-import com.alibaba.druid.support.logging.LogFactory;
-import com.alibaba.druid.util.LRUCache;
+import static com.alibaba.druid.util.JdbcSqlStatUtils.get;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -28,10 +25,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.alibaba.druid.util.JdbcSqlStatUtils.get;
+import com.alibaba.druid.support.logging.Log;
+import com.alibaba.druid.support.logging.LogFactory;
+import com.alibaba.druid.util.LRUCache;
 
 public class WebAppStat {
 
@@ -335,7 +335,7 @@ public class WebAppStat {
                     long fullCount = uriSessionMapFullCount.getAndIncrement();
 
                     if (fullCount == 0) {
-                        LOG.error("sessionStatMap is full");
+                        LOG.warn("sessionStatMap is full");
                     }
                 }
 
@@ -500,20 +500,26 @@ public class WebAppStat {
     }
 
     public List<Map<String, Object>> getSessionStatDataList() {
-        List<Map<String, Object>> sessionStatDataList = new ArrayList<Map<String, Object>>(this.sessionStatMap.size());
-        for (WebSessionStat sessionStat : Collections.unmodifiableCollection(this.sessionStatMap.values())) {
-            Map<String, Object> sessionStatData = sessionStat.getStatData();
+        Lock lock = sessionStatLock.readLock();
+        lock.lock();
+        try {
+            List<Map<String, Object>> sessionStatDataList = new ArrayList<Map<String, Object>>(this.sessionStatMap.size());
+            for (WebSessionStat sessionStat : this.sessionStatMap.values()) {
+                Map<String, Object> sessionStatData = sessionStat.getStatData();
 
-            int runningCount = ((Number) sessionStatData.get("RunningCount")).intValue();
-            long requestCount = (Long) sessionStatData.get("RequestCount");
+                int runningCount = ((Number) sessionStatData.get("RunningCount")).intValue();
+                long requestCount = (Long) sessionStatData.get("RequestCount");
 
-            if (runningCount == 0 && requestCount == 0) {
-                continue;
+                if (runningCount == 0 && requestCount == 0) {
+                    continue;
+                }
+
+                sessionStatDataList.add(sessionStatData);
             }
-
-            sessionStatDataList.add(sessionStatData);
+            return sessionStatDataList;
+        } finally {
+            lock.unlock();
         }
-        return sessionStatDataList;
     }
 
     public void computeUserAgent(String userAgent) {

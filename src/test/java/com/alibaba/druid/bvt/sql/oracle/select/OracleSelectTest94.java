@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public class OracleSelectTest94 extends OracleTest {
                     "\tSELECT times_purchased AS \"puchase frequency\", state_code\n" +
                     "\tFROM customers t\n" +
                     ")\n" +
-                    "PIVOT XML (COUNT(state_code) FOR state_code IN (\n" +
+                    "PIVOT XML (count(state_code) FOR state_code IN (\n" +
                     "\tSELECT state_code\n" +
                     "\tFROM preferred_states))\n" +
                     "ORDER BY 1", text);

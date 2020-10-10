@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.alibaba.druid.sql.dialect.postgresql.visitor;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
@@ -26,23 +27,12 @@ import com.alibaba.druid.sql.dialect.oracle.ast.stmt.*;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleFunctionDataType;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleProcedureDataType;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitor;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGBoxExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGCidrExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGCircleExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGExtractExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGInetExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGLineSegmentsExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGMacAddrExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGPointExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGPolygonExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGTypeCastExpr;
+import com.alibaba.druid.sql.dialect.postgresql.ast.expr.*;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.*;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.FetchClause;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.ForClause;
-import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.WindowClause;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 import com.alibaba.druid.util.FnvHash;
-import com.alibaba.druid.util.JdbcConstants;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -52,38 +42,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     public PGOutputVisitor(Appendable appender){
         super(appender);
-        this.dbType = JdbcConstants.POSTGRESQL;
+        this.dbType = DbType.postgresql;
     }
 
     public PGOutputVisitor(Appendable appender, boolean parameterized){
         super(appender, parameterized);
-        this.dbType = JdbcConstants.POSTGRESQL;
-    }
-
-    @Override
-    public void endVisit(WindowClause x) {
-
-    }
-
-    @Override
-    public boolean visit(WindowClause x) {
-        print0(ucase ? "WINDOW " : "window ");
-        x.getName().accept(this);
-        print0(ucase ? " AS " : " as ");
-        for (int i = 0; i < x.getDefinition().size(); ++i) {
-            if (i != 0) {
-                println(", ");
-            }
-            print('(');
-            x.getDefinition().get(i).accept(this);
-            print(')');
-        }
-        return false;
-    }
-
-    @Override
-    public void endVisit(FetchClause x) {
-
+        this.dbType = DbType.postgresql;
     }
 
     @Override
@@ -97,11 +61,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getCount().accept(this);
         print0(ucase ? " ROWS ONLY" : " rows only");
         return false;
-    }
-
-    @Override
-    public void endVisit(ForClause x) {
-
     }
 
     @Override
@@ -131,6 +90,15 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
 
     public boolean visit(PGSelectQueryBlock x) {
+        if ((!isParameterized()) && isPrettyFormat() && x.hasBeforeComment()) {
+            printlnComments(x.getBeforeCommentsDirect());
+        }
+
+        final boolean bracket = x.isBracket();
+        if (bracket) {
+            print('(');
+        }
+
         print0(ucase ? "SELECT " : "select ");
 
         if (SQLSetQuantifier.ALL == x.getDistionOption()) {
@@ -140,7 +108,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
             if (x.getDistinctOn() != null && x.getDistinctOn().size() > 0) {
                 print0(ucase ? "ON " : "on ");
+                print0("(");
                 printAndAccept(x.getDistinctOn(), ", ");
+                print0(") ");
             }
         }
 
@@ -163,10 +133,16 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             x.getFrom().accept(this);
         }
 
-        if (x.getWhere() != null) {
+        SQLExpr where = x.getWhere();
+        if (where != null) {
             println();
             print0(ucase ? "WHERE " : "where ");
-            x.getWhere().accept(this);
+            where.accept(this);
+
+            if (where.hasAfterComment() && isPrettyFormat()) {
+                print(' ');
+                printlnComment(x.getWhere().getAfterCommentsDirect());
+            }
         }
 
         if (x.getGroupBy() != null) {
@@ -174,9 +150,16 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             x.getGroupBy().accept(this);
         }
 
-        if (x.getWindow() != null) {
+//        if (x.getWindow() != null) {
+//            println();
+//            x.getWindow().accept(this);
+//        }
+
+        final List<SQLWindow> windows = x.getWindows();
+        if (windows != null && windows.size() > 0) {
             println();
-            x.getWindow().accept(this);
+            print0(ucase ? "WINDOW " : "window ");
+            printAndAccept(windows, ", ");
         }
 
         if (x.getOrderBy() != null) {
@@ -197,6 +180,10 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         if (x.getForClause() != null) {
             println();
             x.getForClause().accept(this);
+        }
+
+        if (bracket) {
+            print(')');
         }
 
         return false;
@@ -227,11 +214,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             }
         }
         return false;
-    }
-
-    @Override
-    public void endVisit(PGDeleteStatement x) {
-
     }
 
     @Override
@@ -275,11 +257,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         }
 
         return false;
-    }
-
-    @Override
-    public void endVisit(PGInsertStatement x) {
-
     }
 
     @Override
@@ -337,8 +314,13 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             if (onConflictDoNothing) {
                 print0(ucase ? " DO NOTHING" : " do nothing");
             } else if ((onConflictUpdateSetItems != null && onConflictUpdateSetItems.size() > 0)) {
-                print0(ucase ? " UPDATE SET " : " update set ");
+                print0(ucase ? " DO UPDATE SET " : " do update set ");
                 printAndAccept(onConflictUpdateSetItems, ", ");
+                SQLExpr onConflictUpdateWhere = x.getOnConflictUpdateWhere();
+                if (onConflictUpdateWhere != null) {
+                    print0(ucase ? " WHERE " : " where ");
+                    printExpr(onConflictUpdateWhere);
+                }
             }
         }
 
@@ -352,18 +334,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(PGSelectStatement x) {
-
-    }
-
-    @Override
     public boolean visit(PGSelectStatement x) {
         return visit((SQLSelectStatement) x);
-    }
-
-    @Override
-    public void endVisit(PGUpdateStatement x) {
-
     }
 
     @Override
@@ -419,11 +391,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(PGSelectQueryBlock x) {
-
-    }
-
-    @Override
     public boolean visit(PGFunctionTableSource x) {
         x.getExpr().accept(this);
 
@@ -439,16 +406,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         }
 
         return false;
-    }
-
-    @Override
-    public void endVisit(PGFunctionTableSource x) {
-
-    }
-
-    @Override
-    public void endVisit(PGTypeCastExpr x) {
-        
     }
 
     @Override
@@ -484,24 +441,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(PGValuesQuery x) {
-        
-    }
-
-    @Override
-    public boolean visit(PGValuesQuery x) {
-        print0(ucase ? "VALUES(" : "values(");
-        printAndAccept(x.getValues(), ", ");
-        print(')');
-        return false;
-    }
-    
-    @Override
-    public void endVisit(PGExtractExpr x) {
-        
-    }
-    
-    @Override
     public boolean visit(PGExtractExpr x) {
         print0(ucase ? "EXTRACT (" : "extract (");
         print0(x.getField().name());
@@ -517,11 +456,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getValue().accept(this);
         return false;
     }
-
-    @Override
-    public void endVisit(PGBoxExpr x) {
-        
-    }
     
     @Override
     public boolean visit(PGPointExpr x) {
@@ -529,24 +463,14 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getValue().accept(this);
         return false;
     }
-    
-    @Override
-    public void endVisit(PGPointExpr x) {
-        
-    }
-    
+
     @Override
     public boolean visit(PGMacAddrExpr x) {
         print0("macaddr ");
         x.getValue().accept(this);
         return false;
     }
-    
-    @Override
-    public void endVisit(PGMacAddrExpr x) {
-        
-    }
-    
+
     @Override
     public boolean visit(PGInetExpr x) {
         print0("inet ");
@@ -555,56 +479,31 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
     
     @Override
-    public void endVisit(PGInetExpr x) {
-        
-    }
-    
-    @Override
     public boolean visit(PGCidrExpr x) {
         print0("cidr ");
         x.getValue().accept(this);
         return false;
     }
-    
-    @Override
-    public void endVisit(PGCidrExpr x) {
-        
-    }
-    
+
     @Override
     public boolean visit(PGPolygonExpr x) {
         print0("polygon ");
         x.getValue().accept(this);
         return false;
     }
-    
-    @Override
-    public void endVisit(PGPolygonExpr x) {
-        
-    }
-    
+
     @Override
     public boolean visit(PGCircleExpr x) {
         print0("circle ");
         x.getValue().accept(this);
         return false;
     }
-    
-    @Override
-    public void endVisit(PGCircleExpr x) {
-        
-    }
-    
+
     @Override
     public boolean visit(PGLineSegmentsExpr x) {
         print0("lseg ");
         x.getValue().accept(this);
         return false;
-    }
-
-    @Override
-    public void endVisit(PGLineSegmentsExpr x) {
-        
     }
 
     @Override
@@ -615,12 +514,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
         return false;
     }
-    
-    @Override
-    public void endVisit(PGShowStatement x) {
-        
-    }
-    
+
     @Override
     public boolean visit(PGShowStatement x) {
         print0(ucase ? "SHOW " : "show ");
@@ -641,25 +535,62 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(PGStartTransactionStatement x) {
-        
-    }
-
-    @Override
     public boolean visit(PGStartTransactionStatement x) {
         print0(ucase ? "START TRANSACTION" : "start transaction");
         return false;
     }
 
     @Override
-    public void endVisit(PGConnectToStatement x) {
-
-    }
-
-    @Override
     public boolean visit(PGConnectToStatement x) {
         print0(ucase ? "CONNECT TO " : "connect to ");
         x.getTarget().accept(this);
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGCreateSchemaStatement x) {
+        printUcase("CREATE SCHEMA ");
+        if (x.isIfNotExists()) {
+            printUcase("IF NOT EXISTS ");
+        }
+
+        if (x.getSchemaName() != null) {
+            x.getSchemaName().accept(this);
+        }
+        if (x.isAuthorization()) {
+            printUcase("AUTHORIZATION ");
+            x.getUserName().accept(this);
+        }
+
+        return false;
+    }
+
+    @Override
+    public void endVisit(PGDropSchemaStatement x) {
+        printUcase("DROP SCHEMA ");
+        if (x.isIfExists()) {
+            printUcase("IF EXISTS ");
+        }
+        x.getSchemaName().accept(this);
+    }
+
+    @Override
+    public boolean visit(PGDropSchemaStatement x) {
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGAlterSchemaStatement x) {
+        printUcase("ALTER SCHEMA ");
+        x.getSchemaName().accept(this);
+
+        if (x.getNewName() != null) {
+            print0(" RENAME TO ");
+            x.getNewName().accept(this);
+        } else if (x.getNewOwner() != null) {
+            print0(" OWNER TO ");
+            x.getNewOwner().accept(this);
+        }
         return false;
     }
 
@@ -728,15 +659,16 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     protected void printGrantPrivileges(SQLGrantStatement x) {
-        List<SQLExpr> privileges = x.getPrivileges();
+        List<SQLPrivilegeItem> privileges = x.getPrivileges();
         int i = 0;
-        for (SQLExpr privilege : privileges) {
+        for (SQLPrivilegeItem privilege : privileges) {
             if (i != 0) {
                 print(", ");
             }
 
-            if (privilege instanceof SQLIdentifierExpr) {
-                String name = ((SQLIdentifierExpr) privilege).getName();
+            SQLExpr action = privilege.getAction();
+            if (action instanceof SQLIdentifierExpr) {
+                String name = ((SQLIdentifierExpr) action).getName();
                 if ("RESOURCE".equalsIgnoreCase(name)) {
                     continue;
                 }
@@ -748,14 +680,17 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     public boolean visit(SQLGrantStatement x) {
-        if (x.getOn() == null) {
+        if (x.getResource() == null) {
             print("ALTER ROLE ");
-            x.getTo().accept(this);
+
+            printAndAccept(x.getUsers(), ",");
+
             print(' ');
             Set<SQLIdentifierExpr> pgPrivilegs = new LinkedHashSet<SQLIdentifierExpr>();
-            for (SQLExpr privilege : x.getPrivileges()) {
-                if (privilege instanceof SQLIdentifierExpr) {
-                    String name = ((SQLIdentifierExpr) privilege).getName();
+            for (SQLPrivilegeItem privilege : x.getPrivileges()) {
+                SQLExpr action = privilege.getAction();
+                if (action instanceof SQLIdentifierExpr) {
+                    String name = ((SQLIdentifierExpr) action).getName();
                     if (name.equalsIgnoreCase("CONNECT")) {
                         pgPrivilegs.add(new SQLIdentifierExpr("LOGIN"));
                     }
@@ -787,18 +722,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleSysdateExpr x) {
-
-    }
-
-    @Override
     public boolean visit(OracleExceptionStatement x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleExceptionStatement x) {
-
     }
 
     @Override
@@ -807,18 +732,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleExceptionStatement.Item x) {
-
-    }
-
-    @Override
     public boolean visit(OracleArgumentExpr x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleArgumentExpr x) {
-
     }
 
     @Override
@@ -827,18 +742,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleSetTransactionStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleExplainStatement x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleExplainStatement x) {
-
     }
 
     @Override
@@ -847,18 +752,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterTableDropPartition x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterTableTruncatePartition x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterTableTruncatePartition x) {
-
     }
 
     @Override
@@ -867,18 +762,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterTableSplitPartition.TableSpaceItem x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterTableSplitPartition.UpdateIndexesClause x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterTableSplitPartition.UpdateIndexesClause x) {
-
     }
 
     @Override
@@ -887,18 +772,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterTableSplitPartition.NestedTablePartitionSpec x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterTableSplitPartition x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterTableSplitPartition x) {
-
     }
 
     @Override
@@ -907,18 +782,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterTableModify x) {
-
-    }
-
-    @Override
     public boolean visit(OracleCreateIndexStatement x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleCreateIndexStatement x) {
-
     }
 
     @Override
@@ -927,29 +792,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleForStatement x) {
-
-    }
-
-    public boolean visit(OracleSizeExpr x) {
-        x.getValue().accept(this);
-        print0(x.getUnit().name());
-        return false;
-    }
-
-    @Override
-    public void endVisit(OracleSizeExpr x) {
-
-    }
-
-    @Override
     public boolean visit(OracleFileSpecification x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleFileSpecification x) {
-
     }
 
     @Override
@@ -958,18 +802,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterTablespaceAddDataFile x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterTablespaceStatement x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterTablespaceStatement x) {
-
     }
 
     @Override
@@ -978,18 +812,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleExitStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleContinueStatement x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleContinueStatement x) {
-
     }
 
     @Override
@@ -998,18 +822,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleRaiseStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleCreateDatabaseDbLinkStatement x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleCreateDatabaseDbLinkStatement x) {
-
     }
 
     @Override
@@ -1018,18 +832,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleDropDbLinkStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleDataTypeIntervalYear x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleDataTypeIntervalYear x) {
-
     }
 
     @Override
@@ -1038,28 +842,13 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleDataTypeIntervalDay x) {
-
-    }
-
-    @Override
     public boolean visit(OracleUsingIndexClause x) {
         return false;
     }
 
     @Override
-    public void endVisit(OracleUsingIndexClause x) {
-
-    }
-
-    @Override
     public boolean visit(OracleLobStorageClause x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleLobStorageClause x) {
-
     }
 
     public boolean visit(OracleSelectTableReference x) {
@@ -1102,18 +891,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleSelectTableReference x) {
-
-    }
-
-    @Override
     public boolean visit(PartitionExtensionClause x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(PartitionExtensionClause x) {
-
     }
 
     private void printHints(List<SQLHint> hints) {
@@ -1167,36 +946,16 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    @Override
-    public void endVisit(OracleDatetimeExpr x) {
-
-    }
-
     public boolean visit(OracleBinaryFloatExpr x) {
         print0(x.getValue().toString());
         print('F');
         return false;
     }
 
-    @Override
-    public void endVisit(OracleBinaryFloatExpr x) {
-
-    }
-
     public boolean visit(OracleBinaryDoubleExpr x) {
         print0(x.getValue().toString());
         print('D');
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleBinaryDoubleExpr x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleCursorExpr x) {
-
     }
 
     @Override
@@ -1207,11 +966,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleIsSetExpr x) {
-
-    }
-
-    @Override
     public boolean visit(ModelClause.ReturnRowsClause x) {
         if (x.isAll()) {
             print0(ucase ? "RETURN ALL ROWS" : "return all rows");
@@ -1219,11 +973,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "RETURN UPDATED ROWS" : "return updated rows");
         }
         return false;
-    }
-
-    @Override
-    public void endVisit(ModelClause.ReturnRowsClause x) {
-
     }
 
     @Override
@@ -1248,11 +997,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(ModelClause.MainModelClause x) {
-
-    }
-
-    @Override
     public boolean visit(ModelClause.ModelColumnClause x) {
         if (x.getQueryPartitionClause() != null) {
             x.getQueryPartitionClause().accept(this);
@@ -1271,21 +1015,11 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(ModelClause.ModelColumnClause x) {
-
-    }
-
-    @Override
     public boolean visit(ModelClause.QueryPartitionClause x) {
         print0(ucase ? "PARTITION BY (" : "partition by (");
         printAndAccept(x.getExprList(), ", ");
         print(')');
         return false;
-    }
-
-    @Override
-    public void endVisit(ModelClause.QueryPartitionClause x) {
-
     }
 
     @Override
@@ -1296,11 +1030,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(x.getAlias());
         }
         return false;
-    }
-
-    @Override
-    public void endVisit(ModelClause.ModelColumn x) {
-
     }
 
     @Override
@@ -1333,11 +1062,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(ModelClause.ModelRulesClause x) {
-
-    }
-
-    @Override
     public boolean visit(ModelClause.CellAssignmentItem x) {
         if (x.getOption() != null) {
             print0(x.getOption().name);
@@ -1358,22 +1082,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(ModelClause.CellAssignmentItem x) {
-
-    }
-
-    @Override
     public boolean visit(ModelClause.CellAssignment x) {
         x.getMeasureColumn().accept(this);
         print0("[");
         printAndAccept(x.getConditions(), ", ");
         print0("]");
         return false;
-    }
-
-    @Override
-    public void endVisit(ModelClause.CellAssignment x) {
-
     }
 
     @Override
@@ -1403,11 +1117,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(ModelClause x) {
-
-    }
-
-    @Override
     public boolean visit(OracleReturningClause x) {
         print0(ucase ? "RETURNING " : "returning ");
         printAndAccept(x.getItems(), ", ");
@@ -1415,11 +1124,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         printAndAccept(x.getValues(), ", ");
 
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleReturningClause x) {
-
     }
 
     @Override
@@ -1464,11 +1168,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleInsertStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleMultiInsertStatement.InsertIntoClause x) {
         print0(ucase ? "INTO " : "into ");
 
@@ -1506,11 +1205,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleMultiInsertStatement.InsertIntoClause x) {
-
-    }
-
-    @Override
     public boolean visit(OracleMultiInsertStatement x) {
         print0(ucase ? "INSERT " : "insert ");
 
@@ -1534,11 +1228,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getSubQuery().accept(this);
 
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleMultiInsertStatement x) {
-
     }
 
     @Override
@@ -1566,11 +1255,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleMultiInsertStatement.ConditionalInsertClause x) {
-
-    }
-
-    @Override
     public boolean visit(OracleMultiInsertStatement.ConditionalInsertClauseItem x) {
         print0(ucase ? "WHEN " : "when ");
         x.getWhen().accept(this);
@@ -1580,11 +1264,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getThen().accept(this);
         this.indentCount--;
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleMultiInsertStatement.ConditionalInsertClauseItem x) {
-
     }
 
     @Override
@@ -1673,11 +1352,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleSelectQueryBlock x) {
-
-    }
-
-    @Override
     public boolean visit(OracleLockTableStatement x) {
         print0(ucase ? "LOCK TABLE " : "lock table ");
         x.getTable().accept(this);
@@ -1694,20 +1368,10 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleLockTableStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterSessionStatement x) {
         print0(ucase ? "ALTER SESSION SET " : "alter session set ");
         printAndAccept(x.getItems(), ", ");
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterSessionStatement x) {
-
     }
 
     public boolean visit(OracleRangeExpr x) {
@@ -1717,51 +1381,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    @Override
-    public void endVisit(OracleRangeExpr x) {
-
-    }
-
-    @Override
-    public boolean visit(OracleAlterIndexStatement x) {
-        print0(ucase ? "ALTER INDEX " : "alter index ");
-        x.getName().accept(this);
-
-        if (x.getRenameTo() != null) {
-            print0(ucase ? " RENAME TO " : " rename to ");
-            x.getRenameTo().accept(this);
-        }
-
-        if (x.getMonitoringUsage() != null) {
-            print0(ucase ? " MONITORING USAGE" : " monitoring usage");
-        }
-
-        if (x.getRebuild() != null) {
-            print(' ');
-            x.getRebuild().accept(this);
-        }
-
-        if (x.getParallel() != null) {
-            print0(ucase ? " PARALLEL" : " parallel");
-            x.getParallel().accept(this);
-        }
-
-        return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterIndexStatement x) {
-
-    }
-
     public boolean visit(OracleCheck x) {
         visit((SQLCheck) x);
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleCheck x) {
-
     }
 
     @Override
@@ -1812,11 +1434,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleSupplementalIdKey x) {
-
-    }
-
-    @Override
     public boolean visit(OracleSupplementalLogGrp x) {
         print0(ucase ? "SUPPLEMENTAL LOG GROUP " : "supplemental log group ");
         x.getGroup().accept(this);
@@ -1827,11 +1444,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? " ALWAYS" : " always");
         }
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleSupplementalLogGrp x) {
-
     }
 
     @Override
@@ -1897,11 +1509,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleCreateTableStatement.Organization x) {
-
-    }
-
-    @Override
     public boolean visit(OracleCreateTableStatement.OIDIndex x) {
         print0(ucase ? "OIDINDEX" : "oidindex");
 
@@ -1916,11 +1523,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         println();
         print(")");
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleCreateTableStatement.OIDIndex x) {
-
     }
 
     @Override
@@ -1964,11 +1566,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleCreatePackageStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleExecuteImmediateStatement x) {
         print0(ucase ? "EXECUTE IMMEDIATE " : "execute immediate ");
         x.getDynamicSql().accept(this);
@@ -1994,11 +1591,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleExecuteImmediateStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleTreatExpr x) {
         print0(ucase ? "TREAT (" : "treat (");
         x.getExpr().accept(this);
@@ -2009,11 +1601,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getType().accept(this);
         print(')');
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleTreatExpr x) {
-
     }
 
     @Override
@@ -2036,11 +1623,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getObject().accept(this);
 
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleCreateSynonymStatement x) {
-
     }
 
     @Override
@@ -2150,11 +1732,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleCreateTypeStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OraclePipeRowStatement x) {
         print0(ucase ? "PIPE ROW(" : "pipe row(");
         printAndAccept(x.getParameters(), ", ");
@@ -2162,19 +1739,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    @Override
-    public void endVisit(OraclePipeRowStatement x) {
-
-    }
-
     public boolean visit(OraclePrimaryKey x) {
         visit((SQLPrimaryKey) x);
         return false;
-    }
-
-    @Override
-    public void endVisit(OraclePrimaryKey x) {
-
     }
 
     @Override
@@ -2245,11 +1812,10 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "MONITORING" : "monitoring");
         }
 
-        SQLPartitionBy partitionBy = x.getPartitioning();
-        if (partitionBy != null) {
+        if (x.getPartitioning() != null) {
             println();
             print0(ucase ? "PARTITION BY " : "partition by ");
-            partitionBy.accept(this);
+            x.getPartitioning().accept(this);
         }
 
         if (x.getCluster() != null) {
@@ -2267,39 +1833,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             println();
             x.getSelect().accept(this);
         }
-
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleCreateTableStatement x) {
-
-    }
-
-    @Override
-    public boolean visit(OracleAlterIndexStatement.Rebuild x) {
-        print0(ucase ? "REBUILD" : "rebuild");
-
-        if (x.getOption() != null) {
-            print(' ');
-            x.getOption().accept(this);
-        }
-        return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterIndexStatement.Rebuild x) {
-
     }
 
     @Override
     public boolean visit(OracleStorageClause x) {
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleStorageClause x) {
-
     }
 
     @Override
@@ -2310,21 +1849,11 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleGotoStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleLabelStatement x) {
         print0("<<");
         x.getLabel().accept(this);
         print0(">>");
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleLabelStatement x) {
-
     }
 
     @Override
@@ -2347,11 +1876,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterTriggerStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterSynonymStatement x) {
         print0(ucase ? "ALTER SYNONYM " : "alter synonym ");
         x.getName().accept(this);
@@ -2368,11 +1892,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             }
         }
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterSynonymStatement x) {
-
     }
 
     @Override
@@ -2395,20 +1914,10 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleAlterViewStatement x) {
-
-    }
-
-    @Override
     public boolean visit(OracleAlterTableMoveTablespace x) {
         print0(ucase ? " MOVE TABLESPACE " : " move tablespace ");
         x.getName().accept(this);
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAlterTableMoveTablespace x) {
-
     }
 
     public boolean visit(OracleForeignKey x) {
@@ -2416,19 +1925,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    @Override
-    public void endVisit(OracleForeignKey x) {
-
-    }
-
     public boolean visit(OracleUnique x) {
         visit((SQLUnique) x);
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleUnique x) {
-
     }
 
     public boolean visit(OracleSelectSubqueryTableSource x) {
@@ -2562,11 +2061,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    @Override
-    public void endVisit(SampleClause x) {
-
-    }
-
     public boolean visit(OracleSelectJoin x) {
         x.getLeft().accept(this);
         SQLTableSource right = x.getRight();
@@ -2659,6 +2153,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     public boolean visit(OracleSelectRestriction.CheckOption x) {
         print0(ucase ? "CHECK OPTION" : "check option");
         if (x.getConstraint() != null) {
+            print0(ucase ? " CONSTRAINT" : " constraint");
             print(' ');
             x.getConstraint().accept(this);
         }
@@ -2668,86 +2163,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     @Override
     public boolean visit(OracleSelectRestriction.ReadOnly x) {
         print0(ucase ? "READ ONLY" : "read only");
-        return false;
-    }
-
-    public boolean visit(OracleDbLinkExpr x) {
-        SQLExpr expr = x.getExpr();
-        if (expr != null) {
-            expr.accept(this);
-            print('@');
+        if (x.getConstraint() != null) {
+            print0(ucase ? " CONSTRAINT" : " constraint");
+            print(' ');
+            x.getConstraint().accept(this);
         }
-        print0(x.getDbLink());
         return false;
-    }
-
-    @Override
-    public void endVisit(OracleAnalytic x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleAnalyticWindowing x) {
-
-    }
-
-    public void endVisit(OracleDbLinkExpr x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleDeleteStatement x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleIntervalExpr x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleOuterExpr x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectJoin x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectPivot x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectPivot.Item x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectRestriction.CheckOption x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectRestriction.ReadOnly x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectSubqueryTableSource x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleSelectUnPivot x) {
-
-    }
-
-    @Override
-    public void endVisit(OracleUpdateStatement x) {
-
     }
 
     public boolean visit(OracleDeleteStatement x) {
@@ -2800,11 +2221,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleWithSubqueryEntry x) {
-
-    }
-
-    @Override
     public boolean visit(SearchClause x) {
         print0(ucase ? "SEARCH " : "search ");
         print0(x.getType().name());
@@ -2814,11 +2230,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         x.getOrderingColumn().accept(this);
 
         return false;
-    }
-
-    @Override
-    public void endVisit(SearchClause x) {
-
     }
 
     @Override
@@ -2835,13 +2246,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    @Override
-    public void endVisit(CycleClause x) {
-
-    }
-
     public boolean visit(OracleAnalytic x) {
-        print0(ucase ? "OVER (" : "over (");
+        print0(ucase ? "(" : "(");
 
         boolean space = false;
         if (x.getPartitionBy().size() > 0) {
@@ -2901,10 +2307,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    public void endVisit(OracleIsOfTypeExpr x) {
-
-    }
-
     @Override
     public boolean visit(OracleRunStatement x) {
         print0("@@");
@@ -2913,8 +2315,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(OracleRunStatement x) {
-
+    public boolean visit(OracleXmlColumnProperties x) {
+        return false;
     }
 
     @Override
@@ -2997,18 +2399,26 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print(' ');
         }
 
-        print0(ucase ? "INDEX " : "index ");
+        print0(ucase ? "INDEX" : "index");
 
-        x.getName().accept(this);
+        if (x.isConcurrently()) {
+            print0(ucase ? " CONCURRENTLY" : " concurrently");
+        }
+
+        SQLName name = x.getName();
+        if (name != null) {
+            print(' ');
+            name.accept(this);
+        }
+
+        print0(ucase ? " ON " : " on ");
+        x.getTable().accept(this);
 
         if (x.getUsing() != null) {
             print0(ucase ? " USING " : " using ");
             ;
             print0(x.getUsing());
         }
-
-        print0(ucase ? " ON " : " on ");
-        x.getTable().accept(this);
         print0(" (");
         printAndAccept(x.getItems(), ", ");
         print(')');
@@ -3017,6 +2427,60 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         if (comment != null) {
             print0(ucase ? " COMMENT " : " comment ");
             comment.accept(this);
+        }
+
+        boolean hasOptions = false;
+
+        if (x.getIndexDefinition().hasOptions()) {
+            SQLIndexOptions indexOptions = x.getIndexDefinition().getOptions();
+            if (indexOptions.getKeyBlockSize() != null ||
+                indexOptions.getParserName() != null ||
+                indexOptions.getAlgorithm() != null ||
+                indexOptions.getLock() != null ||
+                indexOptions.getOtherOptions().size() > 0) {
+                hasOptions = true;
+            }
+        }
+
+        if (hasOptions) {
+            print0(ucase ? " WITH (" : " with (");
+            SQLIndexOptions indexOptions = x.getIndexDefinition().getOptions();
+
+            SQLExpr keyBlockSize = indexOptions.getKeyBlockSize();
+            if (keyBlockSize != null) {
+                print0(ucase ? " KEY_BLOCK_SIZE = " : " key_block_size = ");
+                printExpr(keyBlockSize, parameterized);
+            }
+
+            String parserName = indexOptions.getParserName();
+            if (parserName != null) {
+                print0(ucase ? " WITH PARSER " : " with parser ");
+                print0(parserName);
+            }
+
+            String algorithm = indexOptions.getAlgorithm();
+            if (algorithm != null) {
+                print0(ucase ? " ALGORITHM = " : " algorithm = ");
+                print0(algorithm);
+            }
+
+            String lock = indexOptions.getLock();
+            if (lock != null) {
+                print0(ucase ? " LOCK " : " lock ");
+                print0(lock);
+            }
+
+            for (SQLAssignItem option : indexOptions.getOtherOptions()) {
+                option.accept(this);
+            }
+
+            print(')');
+        }
+
+        SQLName tablespace = x.getTablespace();
+        if (tablespace != null) {
+            print0(ucase ? " TABLESPACE " : " tablespace ");
+            tablespace.accept(this);
         }
 
         return false;
@@ -3030,11 +2494,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         return false;
     }
 
-    protected void visitAggreateRest(SQLAggregateExpr x) {
-        SQLOrderBy orderBy = x.getWithinGroup();
-        if (orderBy != null) {
-            print(' ');
-            orderBy.accept(this);
-        }
+    @Override
+    public boolean visit(OracleXmlColumnProperties.OracleXMLTypeStorage x) {
+        return false;
     }
+
 }

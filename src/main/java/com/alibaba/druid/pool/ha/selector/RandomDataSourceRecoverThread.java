@@ -15,13 +15,14 @@
  */
 package com.alibaba.druid.pool.ha.selector;
 
+import java.sql.Connection;
+
+import javax.sql.DataSource;
+
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.druid.support.logging.Log;
 import com.alibaba.druid.support.logging.LogFactory;
 import com.alibaba.druid.util.JdbcUtils;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
 
 /**
  * A Thread trying to test if DataSource in blacklist has been recovered.
@@ -29,9 +30,12 @@ import java.sql.Connection;
  * @author DigitalSonic
  */
 public class RandomDataSourceRecoverThread implements Runnable {
+    public static final int DEFAULT_RECOVER_INTERVAL_SECONDS = 120;
     private final static Log LOG = LogFactory.getLog(RandomDataSourceRecoverThread.class);
+
     private RandomDataSourceSelector selector;
-    private int sleepSeconds = 30;
+    private int recoverIntervalSeconds = DEFAULT_RECOVER_INTERVAL_SECONDS;
+    private int validationSleepSeconds = 0;
 
     public RandomDataSourceRecoverThread(RandomDataSourceSelector selector) {
         this.selector = selector;
@@ -49,6 +53,8 @@ public class RandomDataSourceRecoverThread implements Runnable {
                     }
                     tryOneDataSource((DruidDataSource) dataSource);
                 }
+            } else if (selector == null) {
+                break;
             }
             sleep();
         }
@@ -61,29 +67,58 @@ public class RandomDataSourceRecoverThread implements Runnable {
         Connection connection = null;
         try {
             connection = dataSource.getConnection();
+            sleepBeforeValidation();
             dataSource.validateConnection(connection);
             LOG.info(dataSource.getName() + " is available now.");
             selector.removeBlacklist(dataSource);
         } catch(Exception e) {
             LOG.warn("DataSource[" + dataSource.getName() + "] is still unavailable. Exception: "
                     + e.getMessage());
-            if (connection != null) {
-                dataSource.discardConnection(connection);
-            }
         } finally {
             JdbcUtils.close(connection);
         }
     }
 
+    private void sleepBeforeValidation() {
+        if (validationSleepSeconds > 0) {
+            try {
+                LOG.debug("Sleep " + validationSleepSeconds + " second(s) before validation.");
+                Thread.sleep(validationSleepSeconds * 1000);
+            } catch (InterruptedException e) {
+                // ignore
+            }
+        }
+    }
+
     private void sleep() {
         try {
-            Thread.sleep(sleepSeconds * 1000);
+            Thread.sleep(recoverIntervalSeconds * 1000);
         } catch (InterruptedException e) {
             // ignore
         }
     }
 
-    public void setSleepSeconds(int sleepSeconds) {
-        this.sleepSeconds = sleepSeconds;
+    public int getRecoverIntervalSeconds() {
+        return recoverIntervalSeconds;
+    }
+
+    public void setRecoverIntervalSeconds(int recoverIntervalSeconds) {
+        this.recoverIntervalSeconds = recoverIntervalSeconds;
+    }
+
+    public int getValidationSleepSeconds() {
+        return validationSleepSeconds;
+    }
+
+    public void setValidationSleepSeconds(int validationSleepSeconds) {
+        this.validationSleepSeconds = validationSleepSeconds;
+    }
+
+    public RandomDataSourceSelector getSelector() {
+        return selector;
+    }
+
+    public void setSelector(RandomDataSourceSelector selector) {
+        this.selector = selector;
     }
 }

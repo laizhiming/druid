@@ -15,17 +15,6 @@
  */
 package com.alibaba.druid.pool.ha;
 
-import com.alibaba.druid.filter.Filter;
-import com.alibaba.druid.pool.DruidAbstractDataSource;
-import com.alibaba.druid.pool.DruidDataSource;
-import com.alibaba.druid.pool.WrapperAdapter;
-import com.alibaba.druid.pool.ha.selector.DataSourceSelector;
-import com.alibaba.druid.pool.ha.selector.DataSourceSelectorFactory;
-import com.alibaba.druid.pool.ha.selector.RandomDataSourceSelector;
-import com.alibaba.druid.support.logging.Log;
-import com.alibaba.druid.support.logging.LogFactory;
-
-import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -34,9 +23,26 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.logging.Logger;
+
+import javax.sql.DataSource;
+
+import com.alibaba.druid.filter.Filter;
+import com.alibaba.druid.pool.DruidAbstractDataSource;
+import com.alibaba.druid.pool.DruidDataSource;
+import com.alibaba.druid.pool.WrapperAdapter;
+import com.alibaba.druid.pool.ha.node.FileNodeListener;
+import com.alibaba.druid.pool.ha.node.NodeListener;
+import com.alibaba.druid.pool.ha.node.PoolUpdater;
+import com.alibaba.druid.pool.ha.selector.DataSourceSelector;
+import com.alibaba.druid.pool.ha.selector.DataSourceSelectorEnum;
+import com.alibaba.druid.pool.ha.selector.DataSourceSelectorFactory;
+import com.alibaba.druid.support.logging.Log;
+import com.alibaba.druid.support.logging.LogFactory;
 
 /**
  * DataSource class which contains multiple DataSource objects.
@@ -86,21 +92,56 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
     // Properties copied from DruidAbstractDataSource END
 
     private Map<String, DataSource> dataSourceMap = new ConcurrentHashMap<String, DataSource>();
-    private DataSourceSelector selector = new RandomDataSourceSelector(this);
+    private Set<String> blacklist = new CopyOnWriteArraySet<String>();
+    private DataSourceSelector selector;
     private String dataSourceFile = DEFAULT_DATA_SOURCE_FILE;
+    private String propertyPrefix = "";
+    private int poolPurgeIntervalSeconds = PoolUpdater.DEFAULT_INTERVAL;
+    private boolean allowEmptyPoolWhenUpdate = false;
 
-    public void init() throws SQLException {
+    private volatile boolean inited = false;
+
+    private PoolUpdater poolUpdater = new PoolUpdater(this);
+    private NodeListener nodeListener;
+
+    public void init() {
+        if (inited) {
+            return;
+        }
         synchronized (this) {
+            if (inited) {
+                return;
+            }
             if (dataSourceMap == null || dataSourceMap.isEmpty()) {
-                dataSourceMap = new DataSourceCreator(dataSourceFile).createMap(this);
+                poolUpdater.setIntervalSeconds(poolPurgeIntervalSeconds);
+                poolUpdater.setAllowEmptyPool(allowEmptyPoolWhenUpdate);
+                poolUpdater.init();
+                createNodeMap();
             }
             if (selector == null) {
-                selector = new RandomDataSourceSelector(this);
+                setSelector(DataSourceSelectorEnum.RANDOM.getName());
             }
+            if (dataSourceMap == null || dataSourceMap.isEmpty()) {
+                LOG.warn("There is NO DataSource available!!! Please check your configuration.");
+            }
+            inited = true;
         }
     }
 
+    public void close() {
+        destroy();
+    }
+
     public void destroy() {
+        if (nodeListener != null) {
+            nodeListener.destroy();
+        }
+        if (poolUpdater != null) {
+            poolUpdater.destroy();
+        }
+        if (selector != null) {
+            selector.destroy();
+        }
         if (dataSourceMap == null || dataSourceMap.isEmpty()) {
             return;
         }
@@ -117,7 +158,12 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
 
     @Override
     public Connection getConnection() throws SQLException {
+        init();
         DataSource dataSource = selector.get();
+        if (dataSource == null) {
+            LOG.warn("Can NOT obtain DataSource, return null.");
+            return null;
+        }
         return dataSource.getConnection();
     }
 
@@ -127,6 +173,14 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
 
     public void setDataSourceFile(String dataSourceFile) {
         this.dataSourceFile = dataSourceFile;
+    }
+
+    public String getPropertyPrefix() {
+        return propertyPrefix;
+    }
+
+    public void setPropertyPrefix(String propertyPrefix) {
+        this.propertyPrefix = propertyPrefix;
     }
 
     public void setDataSourceMap(Map<String, DataSource> dataSourceMap) {
@@ -139,33 +193,47 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
         return dataSourceMap;
     }
 
-    public void setSelector(String name) {
-        if (name != null && this.selector != null && this.selector.isSame(name)) {
-            return;
+    public Map<String, DataSource> getAvailableDataSourceMap() {
+        Map<String, DataSource> map = new ConcurrentHashMap<String, DataSource>(this.dataSourceMap);
+        for (String n : blacklist) {
+            if (map.containsKey(n)) {
+                map.remove(n);
+            }
         }
-        DataSourceSelector selector = DataSourceSelectorFactory.getSelector(name, this);
-        if (selector != null) {
-            this.selector = selector;
+        return map;
+    }
+
+    public void addBlackList(String name) {
+        if (dataSourceMap.containsKey(name)) {
+            blacklist.add(name);
+        } else {
+            LOG.info("Key " + name + " is NOT existed, ignore it.");
         }
     }
 
-    public DataSourceSelector getSelector() {
-        return selector;
+    public void removeBlackList(String name) {
+        blacklist.remove(name);
+    }
+
+    public boolean isInBlackList(String name) {
+        return blacklist.contains(name);
+    }
+
+    public void setSelector(String name) {
+        DataSourceSelector selector = DataSourceSelectorFactory.getSelector(name, this);
+        if (selector != null) {
+            selector.init();
+            setDataSourceSelector(selector);
+        }
+    }
+
+    public String getSelector() {
+        return selector == null ? null : selector.getName();
     }
 
     @Override
     public Connection getConnection(String username, String password) throws SQLException {
-        throw new UnsupportedOperationException("Not supported by DruidDataSource");
-    }
-
-    @Override
-    public PrintWriter getLogWriter() throws SQLException {
-        return logWriter;
-    }
-
-    @Override
-    public void setLogWriter(PrintWriter out) throws SQLException {
-        this.logWriter = out;
+        throw new UnsupportedOperationException("Not supported by HighAvailableDataSource.");
     }
 
     @Override
@@ -182,6 +250,106 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
         throw new SQLFeatureNotSupportedException();
     }
 
+    public void setConnectionProperties(String connectionProperties) {
+        this.connectionProperties = connectionProperties;
+
+        // COPIED FROM DruidAbstractDataSource.setConnectionProperties()
+
+        if (connectionProperties == null || connectionProperties.trim().length() == 0) {
+            setConnectProperties(null);
+            return;
+        }
+
+        String[] entries = connectionProperties.split(";");
+        Properties properties = new Properties();
+        for (int i = 0; i < entries.length; i++) {
+            String entry = entries[i];
+            if (entry.length() > 0) {
+                int index = entry.indexOf('=');
+                if (index > 0) {
+                    String name = entry.substring(0, index);
+                    String value = entry.substring(index + 1);
+                    properties.setProperty(name, value);
+                } else {
+                    // no value is empty string which is how java.util.Properties works
+                    properties.setProperty(entry, "");
+                }
+            }
+        }
+
+        setConnectProperties(properties);
+    }
+
+    public void setConnectProperties(Properties connectProperties) {
+        if (connectProperties == null) {
+            connectProperties = new Properties();
+        }
+
+        if (this.connectProperties != null) {
+            this.connectProperties.putAll(connectProperties);
+        } else {
+            this.connectProperties = connectProperties;
+        }
+    }
+
+    private void createNodeMap() {
+        if (nodeListener == null) {
+            // Compatiable with the old version.
+            // Create a FileNodeListener to watch the dataSourceFile.
+            FileNodeListener listener = new FileNodeListener();
+            listener.setFile(dataSourceFile);
+            listener.setPrefix(propertyPrefix);
+            nodeListener = listener;
+        }
+        nodeListener.setObserver(poolUpdater);
+        nodeListener.init();
+        nodeListener.update(); // Do update in the current Thread at the startup
+    }
+
+    public boolean isAllowEmptyPoolWhenUpdate() {
+        return allowEmptyPoolWhenUpdate;
+    }
+
+    public void setAllowEmptyPoolWhenUpdate(boolean allowEmptyPoolWhenUpdate) {
+        this.allowEmptyPoolWhenUpdate = allowEmptyPoolWhenUpdate;
+    }
+
+    // Getters & Setters
+
+    public int getPoolPurgeIntervalSeconds() {
+        return poolPurgeIntervalSeconds;
+    }
+
+    public void setPoolPurgeIntervalSeconds(int poolPurgeIntervalSeconds) {
+        this.poolPurgeIntervalSeconds = poolPurgeIntervalSeconds;
+    }
+
+    public NodeListener getNodeListener() {
+        return nodeListener;
+    }
+
+    public void setNodeListener(NodeListener nodeListener) {
+        this.nodeListener = nodeListener;
+    }
+
+    public DataSourceSelector getDataSourceSelector() {
+        return this.selector;
+    }
+
+    public void setDataSourceSelector(DataSourceSelector dataSourceSelector) {
+        this.selector = dataSourceSelector;
+    }
+
+    @Override
+    public PrintWriter getLogWriter() throws SQLException {
+        return logWriter;
+    }
+
+    @Override
+    public void setLogWriter(PrintWriter out) throws SQLException {
+        this.logWriter = out;
+    }
+
     public String getDriverClassName() {
         return driverClassName;
     }
@@ -192,10 +360,6 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
 
     public Properties getConnectProperties() {
         return connectProperties;
-    }
-
-    public void setConnectProperties(Properties connectProperties) {
-        this.connectProperties = connectProperties;
     }
 
     public int getInitialSize() {
@@ -376,10 +540,6 @@ public class HighAvailableDataSource extends WrapperAdapter implements DataSourc
 
     public String getConnectionProperties() {
         return connectionProperties;
-    }
-
-    public void setConnectionProperties(String connectionProperties) {
-        this.connectionProperties = connectionProperties;
     }
 
     public String getFilters() {

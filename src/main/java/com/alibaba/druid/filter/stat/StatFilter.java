@@ -27,6 +27,7 @@ import java.util.Properties;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.VERSION;
 import com.alibaba.druid.filter.Filter;
 import com.alibaba.druid.filter.FilterChain;
@@ -86,19 +87,23 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
 
     protected boolean                 logSlowSql                 = false;
 
-    private String                    dbType;
+    private DbType                    dbType;
 
     private boolean                   mergeSql                   = false;
 
     public StatFilter(){
     }
 
-    public String getDbType() {
+    public DbType getDbType() {
         return dbType;
     }
 
-    public void setDbType(String dbType) {
+    public void setDbType(DbType dbType) {
         this.dbType = dbType;
+    }
+
+    public void setDbType(String dbType) {
+        this.dbType = DbType.of(dbType);
     }
 
     public long getSlowSqlMillis() {
@@ -139,6 +144,10 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
     }
 
     public String mergeSql(String sql, String dbType) {
+        return mergeSql(sql, DbType.of(dbType));
+    }
+
+    public String mergeSql(String sql, DbType dbType) {
         if (!mergeSql) {
             return sql;
         }
@@ -156,8 +165,8 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
     public void init(DataSourceProxy dataSource) {
         lock.lock();
         try {
-            if (this.dbType == null || this.dbType.trim().length() == 0) {
-                this.dbType = dataSource.getDbType();
+            if (this.dbType == null) {
+                this.dbType = DbType.of(dataSource.getDbType());
             }
 
             configFromProperties(dataSource.getConnectProperties());
@@ -639,10 +648,10 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
         if (contextSql != null && contextSql.length() > 0) {
             return dataSourceStat.createSqlStat(contextSql);
         } else {
-            String dbType = this.dbType;
+            DbType dbType = this.dbType;
 
             if (dbType == null) {
-                dbType = dataSource.getDbType();
+                dbType = DbType.of(dataSource.getDbType());
             }
 
             sql = mergeSql(sql, dbType);
@@ -796,6 +805,21 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
     }
 
     @Override
+    public <T> T resultSet_getObject(FilterChain chain, ResultSetProxy result, int columnIndex, Class<T> type) throws SQLException {
+        T obj = chain.resultSet_getObject(result, columnIndex, type);
+
+        if (obj instanceof Clob) {
+            clobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (ClobProxy) obj);
+        } else if (obj instanceof Blob) {
+            blobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (Blob) obj);
+        } else if (obj instanceof String) {
+            result.addReadStringLength(((String) obj).length());
+        }
+
+        return obj;
+    }
+
+    @Override
     public Object resultSet_getObject(FilterChain chain, ResultSetProxy result, int columnIndex,
                                       java.util.Map<String, Class<?>> map) throws SQLException {
         Object obj = chain.resultSet_getObject(result, columnIndex, map);
@@ -814,6 +838,21 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
     @Override
     public Object resultSet_getObject(FilterChain chain, ResultSetProxy result, String columnLabel) throws SQLException {
         Object obj = chain.resultSet_getObject(result, columnLabel);
+
+        if (obj instanceof Clob) {
+            clobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (ClobProxy) obj);
+        } else if (obj instanceof Blob) {
+            blobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (Blob) obj);
+        } else if (obj instanceof String) {
+            result.addReadStringLength(((String) obj).length());
+        }
+
+        return obj;
+    }
+
+    @Override
+    public <T> T resultSet_getObject(FilterChain chain, ResultSetProxy result, String columnLabel, Class<T> type) throws SQLException {
+        T obj = chain.resultSet_getObject(result, columnLabel, type);
 
         if (obj instanceof Clob) {
             clobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (ClobProxy) obj);

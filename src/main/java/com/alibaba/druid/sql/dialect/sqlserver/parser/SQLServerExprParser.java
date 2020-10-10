@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
  */
 package com.alibaba.druid.sql.dialect.sqlserver.parser;
 
-import java.util.Arrays;
-import java.util.List;
-
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.expr.*;
@@ -32,7 +30,9 @@ import com.alibaba.druid.sql.parser.SQLExprParser;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
 import com.alibaba.druid.sql.parser.Token;
 import com.alibaba.druid.util.FnvHash;
-import com.alibaba.druid.util.JdbcConstants;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class SQLServerExprParser extends SQLExprParser {
     public final static String[] AGGREGATE_FUNCTIONS;
@@ -61,7 +61,7 @@ public class SQLServerExprParser extends SQLExprParser {
 
     public SQLServerExprParser(Lexer lexer){
         super(lexer);
-        this.dbType = JdbcConstants.SQL_SERVER;
+        this.dbType = DbType.sqlserver;
         this.aggregateFunctions = AGGREGATE_FUNCTIONS;
         this.aggregateFunctionHashCodes = AGGREGATE_FUNCTIONS_CODES;
     }
@@ -69,13 +69,13 @@ public class SQLServerExprParser extends SQLExprParser {
     public SQLServerExprParser(String sql){
         this(new SQLServerLexer(sql));
         this.lexer.nextToken();
-        this.dbType = JdbcConstants.SQL_SERVER;
+        this.dbType = DbType.sqlserver;
     }
 
     public SQLServerExprParser(String sql, SQLParserFeature... features){
         this(new SQLServerLexer(sql, features));
         this.lexer.nextToken();
-        this.dbType = JdbcConstants.SQL_SERVER;
+        this.dbType = DbType.sqlserver;
     }
 
     public SQLExpr primary() {

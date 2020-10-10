@@ -15,12 +15,13 @@
  */
 package com.alibaba.druid.support.console;
 
-import com.alibaba.druid.sql.SQLUtils;
-
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.SQLUtils;
 
 public class TabledDataPrinter {
 
@@ -129,7 +130,7 @@ public class TabledDataPrinter {
                 if (idStr == opt.getId()) {
                     matchedContent.add(sqlStat);
                     if (opt.isDetailPrint()) {
-                        String dbType = (String) sqlStat.get("DbType");
+                        DbType dbType = DbType.of((String) sqlStat.get("DbType"));
                         String sql = (String) sqlStat.get("SQL");
                         out.println("Formatted SQL:");
                         out.println(SQLUtils.format(sql, dbType));

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class MySqlReplaceTest_1 extends MysqlTest {
                 "\t\t, if(b.song_name IS NULL, '新发布歌曲', b.song_name)\n" +
                 "\t\t, a.play_num_1d\n" +
                 "\tFROM (\n" +
-                "\t\t(SELECT pt, song_id, SUM(play_num_1d) AS `play_num_1d`\n" +
+                "\t\t(SELECT pt, song_id, sum(play_num_1d) AS `play_num_1d`\n" +
                 "\t\tFROM `tb_002`\n" +
                 "\t\tWHERE `theday` = '20170820'\n" +
                 "\t\t\tAND `pt` IN ('android')\n" +
@@ -53,7 +53,7 @@ public class MySqlReplaceTest_1 extends MysqlTest {
                 "\t\tORDER BY `play_num_1d` DESC\n" +
                 "\t\tLIMIT 0, 100)\n" +
                 "\t\tUNION\n" +
-                "\t\t(SELECT pt, song_id, SUM(play_num_1d) AS `play_num_1d`\n" +
+                "\t\t(SELECT pt, song_id, sum(play_num_1d) AS `play_num_1d`\n" +
                 "\t\tFROM `tb_002`\n" +
                 "\t\tWHERE `theday` = '20170820'\n" +
                 "\t\t\tAND `pt` IN ('ios')\n" +
@@ -61,7 +61,7 @@ public class MySqlReplaceTest_1 extends MysqlTest {
                 "\t\tORDER BY `play_num_1d` DESC\n" +
                 "\t\tLIMIT 0, 100)\n" +
                 "\t\tUNION\n" +
-                "\t\t(SELECT pt, song_id, SUM(play_num_1d) AS `play_num_1d`\n" +
+                "\t\t(SELECT pt, song_id, sum(play_num_1d) AS `play_num_1d`\n" +
                 "\t\tFROM `tb_002`\n" +
                 "\t\tWHERE `theday` = '20170820'\n" +
                 "\t\t\tAND `pt` IN ('yunos')\n" +
@@ -82,7 +82,7 @@ public class MySqlReplaceTest_1 extends MysqlTest {
                 "\tFROM (\n" +
                 "\t\tSELECT song_id, play_num_1d\n" +
                 "\t\tFROM (\n" +
-                "\t\t\tSELECT song_id, SUM(play_num_1d) AS `play_num_1d`\n" +
+                "\t\t\tSELECT song_id, sum(play_num_1d) AS `play_num_1d`\n" +
                 "\t\t\tFROM `tb_002`\n" +
                 "\t\t\tWHERE `theday` = '20170820'\n" +
                 "\t\t\tGROUP BY `song_id`\n" +
@@ -169,9 +169,9 @@ public class MySqlReplaceTest_1 extends MysqlTest {
         System.out.println("fields : " + visitor.getColumns());
         System.out.println("coditions : " + visitor.getConditions());
         System.out.println("orderBy : " + visitor.getOrderByColumns());
-        
+
         assertEquals(3, visitor.getTables().size());
-        assertEquals(12, visitor.getColumns().size());
+        assertEquals(13, visitor.getColumns().size());
         assertEquals(6, visitor.getConditions().size());
 
         assertTrue(visitor.containsTable("tb_001"));

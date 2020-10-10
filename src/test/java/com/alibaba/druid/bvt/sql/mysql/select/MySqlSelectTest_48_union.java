@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import com.alibaba.druid.util.JdbcConstants;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -67,7 +66,7 @@ public class MySqlSelectTest_48_union extends MysqlTest {
         
         {
             String output = SQLUtils.toMySqlString(stmt);
-            assertEquals("SELECT SUM(hd.paid_amount)\n" +
+            assertEquals("SELECT sum(hd.paid_amount)\n" +
                             "FROM (\n" +
                             "\tSELECT 'fl', CAST(a.hosted_ymd AS date) AS hosted_ymd, a.user_id, 'boss1', a.paid_amount\n" +
                             "\t\t, m.user_id, m.create_date, m.pmcode, n.type_name, n.product_name\n" +
@@ -154,7 +153,7 @@ public class MySqlSelectTest_48_union extends MysqlTest {
 
         {
             String output = SQLUtils.toMySqlString(stmt, new SQLUtils.FormatOption(true, true, true));
-            assertEquals("SELECT SUM(hd.paid_amount)\n" +
+            assertEquals("SELECT sum(hd.paid_amount)\n" +
                             "FROM (\n" +
                             "\tSELECT ?, CAST(a.hosted_ymd AS date) AS hosted_ymd, a.user_id, ?, a.paid_amount\n" +
                             "\t\t, m.user_id, m.create_date, m.pmcode, n.type_name, n.product_name\n" +

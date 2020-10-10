@@ -31,7 +31,7 @@ public class MySqlSelectTest_147_huizhi extends MysqlTest {
         assertEquals(1, statementList.size());
 
         assertEquals("INSERT INTO hz_dev_hb.tb_tmp_cda_opera_281c (target, appeartimes, source_id)\n" +
-                "SELECT VARCHAR20, COUNT(1) AS appeartimes, 'resource_count1' AS source_id\n" +
+                "SELECT VARCHAR20, count(1) AS appeartimes, 'resource_count1' AS source_id\n" +
                 "FROM hz_dev_hb.tb_fxzx_large t1\n" +
                 "WHERE 1 = 1\n" +
                 "\tAND VARCHAR20 IS NOT NULL\n" +
@@ -39,13 +39,13 @@ public class MySqlSelectTest_147_huizhi extends MysqlTest {
                 "GROUP BY VARCHAR20", stmt.toString());
 
         assertEquals("INSERT INTO hz_dev_hb.tb_tmp_cda_opera_281c(target, appeartimes, source_id)\n" +
-                        "SELECT VARCHAR20, COUNT(1) AS appeartimes, ? AS source_id\n" +
+                        "SELECT VARCHAR20, count(1) AS appeartimes, ? AS source_id\n" +
                         "FROM hz_dev_hb.tb_fxzx_large t1\n" +
                         "WHERE 1 = 1\n" +
                         "\tAND VARCHAR20 IS NOT NULL\n" +
                         "\tAND MISSIONID = ?\n" +
                         "GROUP BY VARCHAR20"
-                , ParameterizedOutputVisitorUtils.parameterize(sql, JdbcConstants.MYSQL));
+                , ParameterizedOutputVisitorUtils.parameterize(sql, JdbcConstants.MYSQL, VisitorFeature.OutputParameterizedZeroReplaceNotUseOriginalSql));
 
         SQLSelectQueryBlock queryBlock = stmt.getQuery().getQueryBlock();
         assertEquals(3, queryBlock.getSelectList().size());

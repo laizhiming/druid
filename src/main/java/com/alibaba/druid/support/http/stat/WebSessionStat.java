@@ -15,14 +15,14 @@
  */
 package com.alibaba.druid.support.http.stat;
 
-import com.alibaba.druid.support.logging.Log;
-import com.alibaba.druid.support.logging.LogFactory;
+import static com.alibaba.druid.util.JdbcSqlStatUtils.get;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 
-import static com.alibaba.druid.util.JdbcSqlStatUtils.get;
+import com.alibaba.druid.support.logging.Log;
+import com.alibaba.druid.support.logging.LogFactory;
 
 public class WebSessionStat {
 
@@ -262,7 +262,6 @@ public class WebSessionStat {
         }
 
         if (remoteAddresses.length() > 256) {
-            LOG.error("session ip change too many");
             return;
         }
 

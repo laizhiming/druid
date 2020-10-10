@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,20 @@
 package com.alibaba.druid.sql.dialect.mysql.visitor.transform;
 
 import com.alibaba.druid.sql.SQLUtils;
+import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLObject;
-import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.ast.expr.*;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
+import com.alibaba.druid.sql.ast.expr.SQLExistsExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLInSubQueryExpr;
+import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLSelectItem;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
+import com.alibaba.druid.sql.ast.statement.SQLSubqueryTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLTableSource;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitorAdapter;
 import com.alibaba.druid.util.FnvHash;
 
@@ -28,6 +37,7 @@ import com.alibaba.druid.util.FnvHash;
  * Created by wenshao on 26/07/2017.
  */
 public class NameResolveVisitor extends OracleASTVisitorAdapter {
+    @Override
     public boolean visit(SQLIdentifierExpr x) {
         SQLObject parent = x.getParent();
 
@@ -83,7 +93,13 @@ public class NameResolveVisitor extends OracleASTVisitorAdapter {
                 if (from instanceof SQLExprTableSource || from instanceof SQLSubqueryTableSource) {
                     String alias = from.getAlias();
                     if (alias != null) {
-                        SQLUtils.replaceInParent(x, new SQLPropertyExpr(alias, name));
+                        // rownum 不加 alias
+                        boolean isRowNumColumn = isRowNumColumn(x, queryBlock);
+                        // 别名 不加 alias
+                        boolean isAliasColumn = isAliasColumn(x, queryBlock);
+                        if (!isRowNumColumn && !isAliasColumn) {
+                            SQLUtils.replaceInParent(x, new SQLPropertyExpr(alias, name));
+                        }
                     }
                 }
                 return false;
@@ -92,6 +108,7 @@ public class NameResolveVisitor extends OracleASTVisitorAdapter {
         return true;
     }
 
+    @Override
     public boolean visit(SQLPropertyExpr x) {
         String ownerName = x.getOwnernName();
         if (ownerName == null) {
@@ -107,8 +124,7 @@ public class NameResolveVisitor extends OracleASTVisitorAdapter {
                 }
 
                 String alias = tableSource.computeAlias();
-                if (tableSource != null
-                        && ownerName.equalsIgnoreCase(alias)
+                if (ownerName.equalsIgnoreCase(alias)
                         && !ownerName.equals(alias)) {
                     x.setOwner(alias);
                 }
@@ -119,4 +135,75 @@ public class NameResolveVisitor extends OracleASTVisitorAdapter {
 
         return super.visit(x);
     }
+
+    /**
+     * 是否是 rownum 或者 rownum 别名
+     *
+     * @param x      x 是否是 rownum 或者 rownum 别名
+     * @param source 从 source 数据中查找 and 判断
+     * @return true：是、false：不是
+     */
+    public boolean isRowNumColumn(SQLExpr x, SQLSelectQueryBlock source) {
+        if (x instanceof SQLIdentifierExpr) {
+            SQLIdentifierExpr identifierExpr = (SQLIdentifierExpr) x;
+            long nameHashCode64 = identifierExpr.nameHashCode64();
+            if (nameHashCode64 == FnvHash.Constants.ROWNUM) {
+                return true;
+            }
+
+
+            SQLSelectQueryBlock queryBlock = source;
+            if (queryBlock.getFrom() instanceof SQLSubqueryTableSource
+                    && ((SQLSubqueryTableSource) queryBlock.getFrom()).getSelect().getQuery() instanceof SQLSelectQueryBlock) {
+
+                SQLSelectQueryBlock subQueryBlock = ((SQLSubqueryTableSource) queryBlock.getFrom()).getSelect().getQueryBlock();
+                SQLSelectItem selectItem = subQueryBlock.findSelectItem(nameHashCode64);
+
+                if (selectItem != null && isRowNumColumn(selectItem.getExpr(), subQueryBlock)) {
+                    return true;
+                }
+
+            }
+
+
+        }
+        return false;
+    }
+
+
+    /**
+     * 是否是 select item 字段的别名
+     *
+     * @param x      x 是否是 select item 字段的别名
+     * @param source 从 source 数据中查找 and 判断
+     * @return true：是、false：不是
+     */
+    public boolean isAliasColumn(SQLExpr x, SQLSelectQueryBlock source) {
+        if (x instanceof SQLIdentifierExpr) {
+            SQLIdentifierExpr identifierExpr = (SQLIdentifierExpr) x;
+            long nameHashCode64 = identifierExpr.nameHashCode64();
+            SQLSelectQueryBlock queryBlock = source;
+
+            SQLSelectItem selectItem = queryBlock.findSelectItem(nameHashCode64);
+            if (selectItem != null) {
+                return true;
+            }
+
+            if (queryBlock.getFrom() instanceof SQLSubqueryTableSource
+                    && ((SQLSubqueryTableSource) queryBlock.getFrom()).getSelect().getQuery() instanceof SQLSelectQueryBlock) {
+
+                SQLSelectQueryBlock subQueryBlock = ((SQLSubqueryTableSource) queryBlock.getFrom()).getSelect().getQueryBlock();
+
+                if (isAliasColumn(x, subQueryBlock)) {
+                    return true;
+                }
+
+            }
+
+
+        }
+        return false;
+    }
+
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,24 +15,30 @@
  */
 package com.alibaba.druid.sql.ast.statement;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.SQLUtils;
+import com.alibaba.druid.sql.ast.SQLDbTypedObject;
 import com.alibaba.druid.sql.ast.SQLLimit;
 import com.alibaba.druid.sql.ast.SQLObjectImpl;
 import com.alibaba.druid.sql.ast.SQLOrderBy;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
-public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery {
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery, SQLDbTypedObject {
 
     private boolean          bracket  = false;
 
-    private SQLSelectQuery   left;
-    private SQLSelectQuery   right;
+    private List<SQLSelectQuery> relations = new ArrayList<SQLSelectQuery>();
     private SQLUnionOperator operator = SQLUnionOperator.UNION;
     private SQLOrderBy       orderBy;
 
     private SQLLimit         limit;
-    private String           dbType;
+    private DbType           dbType;
 
     public SQLUnionOperator getOperator() {
         return operator;
@@ -52,26 +58,67 @@ public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery {
         this.setRight(right);
     }
 
+
+    public List<SQLSelectQuery> getRelations() {
+        return relations;
+    }
+
+    public void addRelation(SQLSelectQuery relation) {
+        if (relation != null) {
+            relation.setParent(this);
+        }
+
+        relations.add(relation);
+    }
+
     public SQLSelectQuery getLeft() {
-        return left;
+        if (relations.size() == 0) {
+            return null;
+        }
+        return relations.get(0);
     }
 
     public void setLeft(SQLSelectQuery left) {
         if (left != null) {
             left.setParent(this);
         }
-        this.left = left;
+
+        if (relations.size() == 0) {
+            relations.add(left);
+        } else if (relations.size() <= 2) {
+            relations.set(0, left);
+        } else {
+            throw new UnsupportedOperationException("multi-union");
+        }
     }
 
     public SQLSelectQuery getRight() {
-        return right;
+        if (relations.size() < 2) {
+            return null;
+        }
+        if (relations.size() == 2) {
+            return relations.get(1);
+        }
+
+        throw new UnsupportedOperationException("multi-union");
     }
 
     public void setRight(SQLSelectQuery right) {
         if (right != null) {
             right.setParent(this);
         }
-        this.right = right;
+
+        if (relations.size() == 0) {
+            relations.add(null);
+        }
+
+        if (relations.size() == 1) {
+            relations.add(right);
+        } else if (relations.size() == 2) {
+            relations.set(1, right);
+        } else {
+            throw new UnsupportedOperationException("multi-union");
+        }
     }
 
     public SQLOrderBy getOrderBy() {
@@ -88,10 +135,17 @@ public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery {
     @Override
     protected void accept0(SQLASTVisitor visitor) {
         if (visitor.visit(this)) {
-            acceptChild(visitor, left);
-            acceptChild(visitor, right);
-            acceptChild(visitor, orderBy);
-            acceptChild(visitor, limit);
+            for (SQLSelectQuery relation : relations) {
+                relation.accept(visitor);
+            }
+
+            if (orderBy != null) {
+                orderBy.accept(visitor);
+            }
+
+            if (limit != null) {
+                limit.accept(visitor);
+            }
         }
         visitor.endVisit(this);
     }
@@ -120,12 +174,13 @@ public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery {
         SQLUnionQuery x = new SQLUnionQuery();
 
         x.bracket = bracket;
-        if (left != null) {
-            x.setLeft(left.clone());
+
+        for (SQLSelectQuery relation : relations) {
+            SQLSelectQuery r = relation.clone();
+            r.setParent(x);
+            x.relations.add(r);
         }
-        if (right != null) {
-            x.setRight(right.clone());
-        }
+
         x.operator = operator;
 
         if (orderBy != null) {
@@ -142,6 +197,8 @@ public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery {
     }
 
     public SQLSelectQueryBlock getFirstQueryBlock() {
+        SQLSelectQuery left = getLeft();
+
         if (left instanceof SQLSelectQueryBlock) {
             return (SQLSelectQueryBlock) left;
         }
@@ -153,16 +210,100 @@ public class SQLUnionQuery extends SQLObjectImpl implements SQLSelectQuery {
         return null;
     }
 
-    public String getDbType() {
+    public DbType getDbType() {
         return dbType;
     }
 
-    public void setDbType(String dbType) {
+    public void setDbType(DbType dbType) {
         this.dbType = dbType;
     }
 
-    public void output(StringBuffer buf) {
-        SQLASTOutputVisitor visitor = SQLUtils.createOutputVisitor(buf, dbType);
-        this.accept(visitor);
+    public boolean replace(SQLSelectQuery cmp, SQLSelectQuery target) {
+        for (int i = 0; i < relations.size(); i++) {
+            SQLSelectQuery r = relations.get(i);
+            if (r == cmp) {
+                if (cmp != null) {
+                    cmp.setParent(this);
+                }
+                relations.set(i, cmp);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public List<SQLSelectQuery> getChildren() {
+        boolean bracket = this.bracket && !(parent instanceof SQLUnionQueryTableSource);
+
+        if (relations.size() > 2) {
+            return relations;
+        }
+
+        SQLSelectQuery left = getLeft();
+        SQLSelectQuery right = getRight();
+
+        if ((!bracket)
+                && left instanceof SQLUnionQuery
+                && ((SQLUnionQuery) left).getOperator() == operator
+                && !right.isBracket()
+                && orderBy == null) {
+
+            SQLUnionQuery leftUnion = (SQLUnionQuery) left;
+
+            ArrayList<SQLSelectQuery> rights = new ArrayList<SQLSelectQuery>();
+            rights.add(right);
+
+            for (; ; ) {
+                SQLSelectQuery leftLeft = leftUnion.getLeft();
+                SQLSelectQuery leftRight = leftUnion.getRight();
+
+                if ((!leftUnion.isBracket())
+                        && leftUnion.getOrderBy() == null
+                        && (!leftLeft.isBracket())
+                        && (!leftRight.isBracket())
+                        && leftLeft instanceof SQLUnionQuery
+                        && ((SQLUnionQuery) leftLeft).getOperator() == operator) {
+                    rights.add(leftRight);
+                    leftUnion = (SQLUnionQuery) leftLeft;
+                    continue;
+                } else {
+                    rights.add(leftRight);
+                    rights.add(leftLeft);
+                }
+                break;
+            }
+            Collections.reverse(rights);
+
+            return rights;
+        }
+
+        return Arrays.asList(left, right);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        SQLUnionQuery that = (SQLUnionQuery) o;
+
+        if (bracket != that.bracket) return false;
+        if (relations != null ? !relations.equals(that.relations) : that.relations != null) return false;
+        if (operator != that.operator) return false;
+        if (orderBy != null ? !orderBy.equals(that.orderBy) : that.orderBy != null) return false;
+        if (limit != null ? !limit.equals(that.limit) : that.limit != null) return false;
+        return dbType == that.dbType;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (bracket ? 1 : 0);
+        result = 31 * result + (relations != null ? relations.hashCode() : 0);
+        result = 31 * result + (operator != null ? operator.hashCode() : 0);
+        result = 31 * result + (orderBy != null ? orderBy.hashCode() : 0);
+        result = 31 * result + (limit != null ? limit.hashCode() : 0);
+        result = 31 * result + (dbType != null ? dbType.hashCode() : 0);
+        return result;
     }
 }

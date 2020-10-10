@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,15 @@
  */
 package com.alibaba.druid.bvt.sql.oracle.select;
 
-import java.util.List;
-
-import org.junit.Assert;
-
 import com.alibaba.druid.sql.OracleTest;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleSchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
+import org.junit.Assert;
+
+import java.util.List;
 
 public class OracleSelectTest38 extends OracleTest {
 
@@ -60,7 +59,7 @@ public class OracleSelectTest38 extends OracleTest {
                     "FROM (\n" +
                     "\tWITH vw_kreis_statics_t AS (\n" +
                     "\t\t\tSELECT substr(xzqh, 1, 6) AS xzqh, swrslx\n" +
-                    "\t\t\t\t, SUM(swrs_count) AS acd_totle\n" +
+                    "\t\t\t\t, sum(swrs_count) AS acd_totle\n" +
                     "\t\t\tFROM (\n" +
                     "\t\t\t\tSELECT xzqh, sglx\n" +
                     "\t\t\t\t\t, CASE \n" +
@@ -80,10 +79,10 @@ public class OracleSelectTest38 extends OracleTest {
                     "\t\t, py2\n" +
                     "\tFROM (\n" +
                     "\t\tSELECT xzqh\n" +
-                    "\t\t\t, nvl(MAX(decode(swrslx, '1', acd_totle)), 0) AS less3\n" +
-                    "\t\t\t, nvl(MAX(decode(swrslx, '2', acd_totle)), 0) AS f3to5\n" +
-                    "\t\t\t, nvl(MAX(decode(swrslx, '3', acd_totle)), 0) AS f5to9\n" +
-                    "\t\t\t, nvl(MAX(decode(swrslx, '4', acd_totle)), 0) AS more9\n" +
+                    "\t\t\t, nvl(max(decode(swrslx, '1', acd_totle)), 0) AS less3\n" +
+                    "\t\t\t, nvl(max(decode(swrslx, '2', acd_totle)), 0) AS f3to5\n" +
+                    "\t\t\t, nvl(max(decode(swrslx, '3', acd_totle)), 0) AS f5to9\n" +
+                    "\t\t\t, nvl(max(decode(swrslx, '4', acd_totle)), 0) AS more9\n" +
                     "\t\tFROM (\n" +
                     "\t\t\tSELECT *\n" +
                     "\t\t\tFROM acduser.vw_kreis_statics_t\n" +

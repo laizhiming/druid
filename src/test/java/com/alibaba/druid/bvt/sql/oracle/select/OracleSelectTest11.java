@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,14 @@
  */
 package com.alibaba.druid.bvt.sql.oracle.select;
 
-import java.util.List;
-
-import org.junit.Assert;
-
 import com.alibaba.druid.sql.OracleTest;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleSchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
+import org.junit.Assert;
+
+import java.util.List;
 
 public class OracleSelectTest11 extends OracleTest {
 
@@ -69,7 +68,7 @@ public class OracleSelectTest11 extends OracleTest {
 
         Assert.assertTrue(visitor.getTables().containsKey(new TableStat.Name("IMAGE_REPOSITORY")));
 
-        Assert.assertEquals(17, visitor.getColumns().size());
+        Assert.assertEquals(7, visitor.getColumns().size());
 
         Assert.assertTrue(visitor.getColumns().contains(new TableStat.Column("IMAGE_REPOSITORY", "rowid")));
         Assert.assertTrue(visitor.getColumns().contains(new TableStat.Column("IMAGE_REPOSITORY", "COMPANY_ID")));

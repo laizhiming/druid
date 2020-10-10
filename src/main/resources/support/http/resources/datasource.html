@@ -25,14 +25,16 @@
       		</div> 
     	</div>
     	<script id="datasource-tmpl" type="text/template">
-			{{~ it.Content :datasourceNow:i  }}
 			<ul class="nav nav-tabs" id="datasourceTab">
-					<li class="active">
+				{{~ it.Content :datasourceNow:i  }}
+					<li class="{{=i==0?'active':''}}" id="datasourceTab-li-{{=i}}">
 						<a href="datasource.html#dstab{{=datasourceNow.Identity}}">{{=datasourceNow.Name}}</a>
 					</li>
+				{{~ }}
 			</ul>
 			<div class="tab-content">
-				<div class="tab-pane active" id="dstab{{=datasourceNow.Identity}}">
+				{{~ it.Content :datasourceNow:i  }}
+				<div class="tab-pane {{=i==0?'active':''}}" id="dstab{{=datasourceNow.Identity}}">
 					<h4>
 						Basic Info For {{=datasourceNow.Name}}<a href="datasource-{{=datasourceNow.Identity}}.json" target="_blank"  >View JSON API</a>
 					</h4>
@@ -216,7 +218,7 @@
 							<tr>
 								<td valign="top" class="td_lable" >   <span class="lang"  langKey="TransactionHistogram">TransactionHistogram</span></td>
 								<td>{{=datasourceNow.TransactionHistogram}}</td>
-								<td  class="lang"  langKey="TransactionHistogramDesc">The histogram values of transaction time, [0-10 ms, 10-100 ms, 100-1 s, 1-10 s, 10-100 s, >100 s]</td>
+								<td  class="lang"  langKey="TransactionHistogramDesc">The histogram values of transaction time, [0-1 ms, 1-10 ms, 10-100 ms, 100-1 s, 1-10 s, 10-100 s, >100 s]</td>
 							</tr>
 							<tr>
 								<td valign="top" class="td_lable" >   <span class="lang"  langKey="PoolingCount">PoolingCount</span></td>
@@ -263,6 +265,11 @@
 								<td>{{=datasourceNow.LogicConnectErrorCount}}</td>
 								<td  class="lang"  langKey="LogicConnectErrorCountDesc">Total connect error times</td>
 							</tr>
+                            <tr>
+                                <td valign="top" class="td_lable" >   <span class="lang"  langKey="DiscardCount">DiscardCount</span></td>
+                                <td>{{=datasourceNow.DiscardCount}}</td>
+                                <td  class="lang"  langKey="DiscardCountDesc">Discard connection count with validate fail </td>
+                            </tr>
 							<tr>
 								<td valign="top" class="td_lable" >   <span class="lang"  langKey="RecycleErrorCount">RecycleErrorCount</span></td>
 								<td>{{=datasourceNow.RecycleErrorCount}}</td>
@@ -396,8 +403,8 @@
 						</tbody>
 					</table>
 				</div>
+				{{~ }}
 			</div>
-			{{~ }}	
 		</script>
     	<script type="text/javascript">
 			$.namespace("druid.datasource");
@@ -407,7 +414,6 @@
 					init : function() {
 						druid.common.buildHead(1);
 						this.ajaxRequestForBasicInfo();
-						druid.lang.init();
 					},
 					ajaxRequestForBasicInfo : function() {
 						$.ajax({

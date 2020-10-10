@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class SQLOrderBy extends SQLObjectImpl {
+public final class SQLOrderBy extends SQLObjectImpl implements SQLReplaceable {
 
     protected final List<SQLSelectOrderByItem> items = new ArrayList<SQLSelectOrderByItem>();
     
@@ -37,11 +37,20 @@ public final class SQLOrderBy extends SQLObjectImpl {
         addItem(item);
     }
 
+    public SQLOrderBy(SQLExpr expr, SQLOrderingSpecification type){
+        SQLSelectOrderByItem item = new SQLSelectOrderByItem(expr, type);
+        addItem(item);
+    }
+
     public void addItem(SQLSelectOrderByItem item) {
         if (item != null) {
             item.setParent(this);
         }
         this.items.add(item);
+    }
+
+    public void addItem(SQLExpr item) {
+        addItem(new SQLSelectOrderByItem(item));
     }
 
     public List<SQLSelectOrderByItem> getItems() {
@@ -56,34 +65,33 @@ public final class SQLOrderBy extends SQLObjectImpl {
         this.sibings = sibings;
     }
 
-    protected void accept0(SQLASTVisitor visitor) {
-        if (visitor.visit(this)) {
-            acceptChild(visitor, this.items);
+    protected void accept0(SQLASTVisitor v) {
+        if (v.visit(this)) {
+            for (int i = 0; i < this.items.size(); i++) {
+                final SQLSelectOrderByItem item = this.items.get(i);
+                item.accept(v);
+            }
         }
 
-        visitor.endVisit(this);
+        v.endVisit(this);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        SQLOrderBy order = (SQLOrderBy) o;
+
+        if (sibings != order.sibings) return false;
+        return items.equals(order.items);
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((items == null) ? 0 : items.hashCode());
-        result = prime * result + (sibings ? 1231 : 1237);
+        int result = items.hashCode();
+        result = 31 * result + (sibings ? 1 : 0);
         return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        SQLOrderBy other = (SQLOrderBy) obj;
-        if (items == null) {
-            if (other.items != null) return false;
-        } else if (!items.equals(other.items)) return false;
-        if (sibings != other.sibings) return false;
-        return true;
     }
 
     public void addItem(SQLExpr expr, SQLOrderingSpecification type) {
@@ -91,6 +99,18 @@ public final class SQLOrderBy extends SQLObjectImpl {
         item.setExpr(expr);
         item.setType(type);
         addItem(item);
+    }
+
+    @Override
+    public boolean replace(SQLExpr expr, SQLExpr target) {
+
+        for (SQLSelectOrderByItem item : items) {
+            if(item.replace(expr, target)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected SQLSelectOrderByItem createItem() {

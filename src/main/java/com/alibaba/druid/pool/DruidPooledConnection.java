@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import javax.sql.ConnectionEvent;
@@ -49,6 +48,7 @@ import com.alibaba.druid.pool.PreparedStatementPool.MethodType;
 import com.alibaba.druid.proxy.jdbc.TransactionInfo;
 import com.alibaba.druid.support.logging.Log;
 import com.alibaba.druid.support.logging.LogFactory;
+import com.alibaba.druid.util.JdbcUtils;
 
 /**
  * @author wenshao [szujobs@hotmail.com]
@@ -70,13 +70,14 @@ public class DruidPooledConnection extends PoolableWrapper implements javax.sql.
     private volatile     boolean               abandoned            = false;
     protected            StackTraceElement[]   connectStackTrace;
     protected            Throwable             disableError         = null;
-    public               ReentrantLock         lock                 = new ReentrantLock();
+    final                ReentrantLock         lock;
 
     public DruidPooledConnection(DruidConnectionHolder holder){
         super(holder.getConnection());
 
         this.conn = holder.getConnection();
         this.holder = holder;
+        this.lock = holder.lock;
         dupCloseLogEnable = holder.getDataSource().isDupCloseLogEnable();
         ownerThread = Thread.currentThread();
         connectedTimeMillis = System.currentTimeMillis();
@@ -147,6 +148,7 @@ public class DruidPooledConnection extends PoolableWrapper implements javax.sql.
     public void closePoolableStatement(DruidPooledPreparedStatement stmt) throws SQLException {
         PreparedStatement rawStatement = stmt.getRawPreparedStatement();
 
+        final DruidConnectionHolder holder = this.holder;
         if (holder == null) {
             return;
         }
@@ -711,12 +713,17 @@ public class DruidPooledConnection extends PoolableWrapper implements javax.sql.
         try {
             conn.setAutoCommit(autoCommit);
             holder.setUnderlyingAutoCommit(autoCommit);
+            holder.setLastExecTimeMillis(System.currentTimeMillis());
         } catch (SQLException ex) {
             handleException(ex, null);
         }
     }
 
     protected void transactionRecord(String sql) throws SQLException {
+        if (holder != null) {
+            holder.setLastExecTimeMillis(System.currentTimeMillis());
+        }
+
         if (transactionInfo == null && (!conn.getAutoCommit())) {
             DruidAbstractDataSource dataSource = holder.getDataSource();
             dataSource.incrementStartTransactionCount();
@@ -1150,14 +1157,6 @@ public class DruidPooledConnection extends PoolableWrapper implements javax.sql.
     }
     
     private void checkStateInternal() throws SQLException {
-        if (holder == null) {
-            if (disableError != null) {
-                throw new SQLException("connection holder is null", disableError);
-            } else {
-                throw new SQLException("connection holder is null");
-            }
-        }
-
         if (closed) {
             if (disableError != null) {
                 throw new SQLException("connection closed", disableError);
@@ -1173,6 +1172,14 @@ public class DruidPooledConnection extends PoolableWrapper implements javax.sql.
                 throw new SQLException("connection disabled");
             }
         }
+
+        if (holder == null) {
+            if (disableError != null) {
+                throw new SQLException("connection holder is null", disableError);
+            } else {
+                throw new SQLException("connection holder is null");
+            }
+        }
     }
 
     public String toString() {
@@ -1184,23 +1191,33 @@ public class DruidPooledConnection extends PoolableWrapper implements javax.sql.
     }
 
     public void setSchema(String schema) throws SQLException {
+        if (JdbcUtils.isMysqlDbType(holder.dataSource.getDbType())) {
+            if (holder.initSchema == null) {
+                holder.initSchema = conn.getSchema();
+            }
+            conn.setSchema(schema);
+            if (holder.statementPool != null) {
+                holder.clearStatementCache();
+            }
+            return;
+        }
         throw new SQLFeatureNotSupportedException();
     }
 
     public String getSchema() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return conn.getSchema();
     }
 
     public void abort(Executor executor) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        conn.abort(executor);
     }
 
     public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        conn.setNetworkTimeout(executor, milliseconds);
     }
 
     public int getNetworkTimeout() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return conn.getNetworkTimeout();
     }
 
     final void beforeExecute() {

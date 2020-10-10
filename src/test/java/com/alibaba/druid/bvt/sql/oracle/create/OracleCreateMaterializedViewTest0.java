@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class OracleCreateMaterializedViewTest0 extends OracleTest {
 
         assertEquals("CREATE MATERIALIZED VIEW sales_summary\n" +
                         "AS\n" +
-                        "SELECT seller_no, invoice_date, SUM(invoice_amt) AS sales_amt\n" +
+                        "SELECT seller_no, invoice_date, sum(invoice_amt) AS sales_amt\n" +
                         "FROM invoice\n" +
                         "WHERE invoice_date < CURRENT_DATE\n" +
                         "GROUP BY seller_no, invoice_date\n" +
@@ -70,7 +70,7 @@ public class OracleCreateMaterializedViewTest0 extends OracleTest {
 
         assertEquals(1, visitor.getTables().size());
 
-        assertEquals(5, visitor.getColumns().size());
+        assertEquals(4, visitor.getColumns().size());
 
         assertTrue(visitor.getColumns().contains(new TableStat.Column("invoice", "seller_no")));
     }

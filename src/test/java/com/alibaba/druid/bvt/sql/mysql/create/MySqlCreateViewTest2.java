@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class MySqlCreateViewTest2 extends MysqlTest {
 
         assertEquals("CREATE VIEW revenue0\n" +
                         "AS\n" +
-                        "SELECT l_suppkey AS supplier_no, SUM(l_extendedprice * (1 - l_discount)) AS total_revenue\n" +
+                        "SELECT l_suppkey AS supplier_no, sum(l_extendedprice * (1 - l_discount)) AS total_revenue\n" +
                         "FROM lineitem\n" +
                         "WHERE l_shipdate >= DATE '1993-01-01'\n" +
                         "\tAND l_shipdate < DATE '1993-01-01' + INTERVAL '3' MONTH\n" +

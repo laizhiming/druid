@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2017 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,13 @@
  */
 package com.alibaba.druid.bvt.sql.mysql.createTable;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import com.alibaba.druid.sql.MysqlTest;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
+import org.junit.Assert;
+import org.junit.Test;
 
 public class MySqlCreateTableTest69 extends MysqlTest {
 
@@ -46,7 +45,7 @@ public class MySqlCreateTableTest69 extends MysqlTest {
             String output = SQLUtils.toMySqlString(stmt);
             Assert.assertEquals("CREATE TABLE t1 (\n" +
                     "\ts1 INT,\n" +
-                    "\ts2 INT AS (EXP(s1)) SORTED\n" +
+                    "\ts2 INT AS (EXP(s1)) STORED\n" +
                     ")\n" +
                     "PARTITION BY LIST (s2) (\n" +
                     "\tPARTITION p1 VALUES IN (1)\n" +
@@ -57,7 +56,7 @@ public class MySqlCreateTableTest69 extends MysqlTest {
             String output = SQLUtils.toMySqlString(stmt, SQLUtils.DEFAULT_LCASE_FORMAT_OPTION);
             Assert.assertEquals("create table t1 (\n" +
                     "\ts1 INT,\n" +
-                    "\ts2 INT as (EXP(s1)) sorted\n" +
+                    "\ts2 INT as (EXP(s1)) stored\n" +
                     ")\n" +
                     "partition by list (s2) (\n" +
                     "\tpartition p1 values in (1)\n" +
