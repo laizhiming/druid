@@ -1022,6 +1022,7 @@ public class SQLExprParser extends SQLParser {
                 sqlExpr = new SQLBinaryExpr(strVal);
                 break;
             }
+            case GLOBAL:
             case CONTAINS:
                 sqlExpr = inRest(null);
                 break;
@@ -2347,7 +2348,7 @@ public class SQLExprParser extends SQLParser {
     }
 
     public SQLOrderBy parseDistributeBy() {
-        if (lexer.token == Token.DISTRIBUTE) {
+        if (lexer.token == Token.DISTRIBUTE || lexer.identifierEquals("DISTRIBUTE")) {
             SQLOrderBy orderBy = new SQLOrderBy();
 
             lexer.nextToken();
@@ -2580,6 +2581,14 @@ public class SQLExprParser extends SQLParser {
     }
 
     public final SQLExpr inRest(SQLExpr expr) {
+        boolean global = false;
+
+        // for clickhouse
+        if (lexer.token == Token.GLOBAL) {
+            global = true;
+            lexer.nextToken();
+        }
+
         if (lexer.token == Token.IN) {
             lexer.nextTokenLParen();
 
@@ -2675,6 +2684,11 @@ public class SQLExprParser extends SQLParser {
                     inSubQueryExpr.setSubQuery(((SQLQueryExpr) targetExpr).getSubQuery());
 
                     inSubQueryExpr.setHint(inListExpr.getHint());
+
+                    if (global) {
+                        inSubQueryExpr.setGlobal(true);
+                    }
+
                     expr = inSubQueryExpr;
                 }
             }
@@ -3261,6 +3275,7 @@ public class SQLExprParser extends SQLParser {
                 break;
             case IN:
             case CONTAINS:
+            case GLOBAL:
                 expr = inRest(expr);
                 break;
             case EQEQ:
@@ -3718,9 +3733,13 @@ public class SQLExprParser extends SQLParser {
 
             if (lexer.token == Token.LPAREN) {
                 lexer.nextToken();
-                SQLExpr arg = this.expr();
-                arg.setParent(charType);
-                charType.addArgument(arg);
+                if (typeNameHashCode == FnvHash.Constants.ENUM) {
+                    exprList(charType.getArguments(), charType);
+                } else {
+                    SQLExpr arg = this.expr();
+                    arg.setParent(charType);
+                    charType.addArgument(arg);
+                }
                 accept(Token.RPAREN);
             }
 
@@ -3890,6 +3909,7 @@ public class SQLExprParser extends SQLParser {
                 || hash == FnvHash.Constants.TEXT
                 || hash == FnvHash.Constants.MEDIUMTEXT
                 || hash == FnvHash.Constants.LONGTEXT
+                || hash == FnvHash.Constants.ENUM
                 ;
     }
 
@@ -4798,6 +4818,12 @@ public class SQLExprParser extends SQLParser {
 
         accept(Token.FOR);
         sqlDefault.setColumn(this.expr());
+
+        if (lexer.token == Token.WITH) {
+            lexer.nextToken();
+            accept(Token.VALUES);
+            sqlDefault.setWithValues(true);
+        }
 
         return sqlDefault;
     }

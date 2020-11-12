@@ -636,6 +636,4 @@ public class OracleCreateTableParser extends SQLCreateTableParser {
     public OracleExprParser getExprParser() {
         return (OracleExprParser) exprParser;
     }
-
-
 }

@@ -39,6 +39,7 @@ import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectPivot;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleFunctionDataType;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleProcedureDataType;
 import com.alibaba.druid.util.FnvHash;
+import com.alibaba.druid.util.JdbcUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -3008,27 +3009,27 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         }
 
         if (param instanceof InputStream) {
-            print0("'<InputStream>");
+            print0("'<InputStream>'");
             return;
         }
 
         if (param instanceof Reader) {
-            print0("'<Reader>");
+            print0("'<Reader>'");
             return;
         }
 
         if (param instanceof Blob) {
-            print0("'<Blob>");
+            print0("'<Blob>'");
             return;
         }
 
         if (param instanceof NClob) {
-            print0("'<NClob>");
+            print0("'<NClob>'");
             return;
         }
 
         if (param instanceof Clob) {
-            print0("'<Clob>");
+            print0("'<Clob>'");
             return;
         }
 
@@ -3229,7 +3230,11 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
         SQLColumnDefinition.Identity identity = x.getIdentity();
         if (identity != null) {
-            print(' ');
+            if (dbType == DbType.h2) {
+                print0(ucase ? " AS " : " as ");
+            } else {
+                print(' ');
+            }
             identity.accept(this);
         }
 
@@ -3861,7 +3866,7 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
     @Override
     public boolean visit(SQLSetStatement x) {
-        boolean printSet = x.getAttribute("parser.set") == Boolean.TRUE || DbType.oracle != dbType;
+        boolean printSet = x.getAttribute("parser.set") == Boolean.TRUE || !JdbcUtils.isOracleDbType(dbType);
         if (printSet) {
             print0(ucase ? "SET " : "set ");
         }
@@ -4239,7 +4244,11 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         if (x.isNot()) {
             print0(ucase ? " NOT IN (" : " not in (");
         } else {
-            print0(ucase ? " IN (" : " in (");
+            if (x.isGlobal()) {
+                print0(ucase ? " GLOBAL IN (" : " global in (");
+            } else {
+                print0(ucase ? " IN (" : " in (");
+            }
         }
 
         this.indentCount++;
@@ -5286,6 +5295,11 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
         this.indentCount++;
         x.getColumn().accept(this);
         this.indentCount--;
+
+        if (x.isWithValues()) {
+            print0(ucase ? " WITH VALUES" : " with values");
+        }
+
         return false;
     }
 
@@ -7803,6 +7817,16 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
                 print0(ucase ? " ORDER" : " order");
             } else {
                 print0(ucase ? " NOORDER" : " noorder");
+            }
+        }
+
+        if (x.isRestart()) {
+            print0(ucase ? " RESTART" : " restart");
+
+            SQLExpr restartWith = x.getRestartWith();
+            if (restartWith != null) {
+                print0(ucase ? " WITH " : " with ");
+                restartWith.accept(this);
             }
         }
 
@@ -10640,6 +10664,12 @@ public class SQLASTOutputVisitor extends SQLASTVisitorAdapter implements Paramet
 
         if (x.isWithSplit()) {
             print0(ucase ? " WITH SPLIT" : " with split");
+        }
+
+        if (x.isForce()) {
+            print0(ucase ? " FORCE = true" : " force = true");
+        } else {
+            print0(ucase ? " FORCE = false" : " force = false");
         }
 
         return false;

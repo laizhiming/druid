@@ -1838,6 +1838,10 @@ public class SQLStatementParser extends SQLParser {
 
                             break;
                         }
+                    } else if (lexer.token == DEFAULT) {
+                        SQLConstraint constraint = this.exprParser.parseConstaint();
+                        SQLAlterTableAddConstraint item = new SQLAlterTableAddConstraint(constraint);
+                        stmt.addItem(item);
                     } else {
                         throw new ParserException("TODO " + lexer.info());
                     }
@@ -3343,6 +3347,9 @@ public class SQLStatementParser extends SQLParser {
                 } else if (lexer.identifierEquals(Constants.RESOURCE)) {
                     lexer.reset(markBp, markChar, Token.CREATE);
                     return parseCreateResourceGroup();
+                } else if (lexer.token() == FOREIGN) {
+                    lexer.reset(markBp, markChar, Token.CREATE);
+                    return parseCreateTable();
                 }
 
                 throw new ParserException("TODO " + lexer.info());
@@ -6541,6 +6548,18 @@ public class SQLStatementParser extends SQLParser {
             } else if (lexer.token() == Token.ORDER) {
                 lexer.nextToken();
                 stmt.setOrder(Boolean.TRUE);
+                continue;
+            } else if (lexer.identifierEquals(FnvHash.Constants.RESTART)) {
+                lexer.nextToken();
+                stmt.setRestart(true);
+
+                if (lexer.token == Token.WITH || lexer.token == Token.EQ) {
+                    lexer.nextToken();
+                    stmt.setRestartWith(this.exprParser.primary());
+                } else if(lexer.token == LITERAL_INT) {
+                    stmt.setRestartWith(this.exprParser.primary());
+                }
+
                 continue;
             } else if (lexer.identifierEquals("NOORDER")) {
                 lexer.nextToken();
