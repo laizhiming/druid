@@ -15,21 +15,20 @@
  */
 package com.alibaba.druid.spring.boot.autoconfigure;
 
-import java.util.List;
-
 import com.alibaba.druid.filter.Filter;
 import com.alibaba.druid.pool.DruidDataSource;
-
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.List;
+
 /**
  * @author lihengming [89921218@qq.com]
  */
 @ConfigurationProperties("spring.datasource.druid")
-class DruidDataSourceWrapper extends DruidDataSource implements InitializingBean {
+public class DruidDataSourceWrapper extends DruidDataSource implements InitializingBean {
     @Autowired
     private DataSourceProperties basicProperties;
 
@@ -48,17 +47,19 @@ class DruidDataSourceWrapper extends DruidDataSource implements InitializingBean
         if (super.getDriverClassName() == null) {
             super.setDriverClassName(basicProperties.getDriverClassName());
         }
+
+        init();
     }
 
     @Autowired(required = false)
-    public void autoAddFilters(List<Filter> filters){
+    public void autoAddFilters(List<Filter> filters) {
         super.filters.addAll(filters);
     }
 
     /**
-     * Ignore the 'maxEvictableIdleTimeMillis < minEvictableIdleTimeMillis' validate,
+     * Ignore the 'maxEvictableIdleTimeMillis &lt; minEvictableIdleTimeMillis' validate,
      * it will be validated again in {@link DruidDataSource#init()}.
-     *
+     * <p>
      * for fix issue #3084, #2763
      *
      * @since 1.1.14

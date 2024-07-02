@@ -1,8 +1,8 @@
-/target
-/.settings
-/.project
-/.classpath
-/.DS_Store
+target
+.settings
+.project
+.classpath
+.DS_Store
 /1
 /derby.log
 /src/test/resources/pool_config
@@ -15,5 +15,12 @@ out/
 *.iws
 *.iml
 /bin
+/druid-inner-test
 hs_err_pid*.log
 replay_pid*.log
+/core/derby.log
+/demo-db.mv.db
+/demo-db.trace.db
+
+.vscode
+druid-spring-boot-3-starter/demo-db.mv.db

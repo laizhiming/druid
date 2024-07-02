@@ -1,0 +1,47 @@
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.alibaba</groupId>
+		<artifactId>druid-parent</artifactId>
+		<version>1.2.24-SNAPSHOT</version>
+		<relativePath>../pom.xml</relativePath>
+	</parent>
+	<groupId>com.alibaba</groupId>
+	<artifactId>druid-wrapper</artifactId>
+
+	<name>druid-wrapper</name>
+	<description>Druid DataSource Wrapper</description>
+	<url>https://github.com/AlibabaTech/druid</url>
+	<inceptionYear>2012</inceptionYear>
+	
+	<developers>
+		<developer>
+			<id>wenshao</id>
+			<name>wenshao</name>
+			<email>szujobs@hotmail.com</email>
+		</developer>
+	</developers>
+
+	<organization>
+		<name>Alibaba Group</name>
+		<url>http://code.alibabatech.com/</url>
+	</organization>
+	
+	<licenses>
+		<license>
+			<name>Apache 2</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>repo</distribution>
+			<comments>A business-friendly OSS license</comments>
+		</license>
+	</licenses>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.alibaba</groupId>
+			<artifactId>druid</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+	</dependencies>
+</project>
