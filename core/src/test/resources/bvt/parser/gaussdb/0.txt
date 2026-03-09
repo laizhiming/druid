@@ -1,0 +1,204 @@
+select * from a where a.id in (VALUES (4096), (4097))
+--------------------
+SELECT *
+FROM a
+WHERE a.id IN (VALUES(4096), (4097))
+------------------------------------------------------------------------------------------------------------------------
+insert into
+    test.test
+select user_id, order_type from test
+    ON DUPLICATE KEY
+update
+    user_id = user_id - values(user_id),
+    order_type =values(order_type)
+--------------------
+INSERT INTO test.test
+SELECT user_id, order_type
+FROM test
+ON DUPLICATE KEY UPDATE user_id = user_id - VALUES(user_id), order_type = VALUES(order_type)
+------------------------------------------------------------------------------------------------------------------------
+GRANT TRIGGER,
+REFERENCES,
+UPDATE
+,
+    TRUNCATE,
+INSERT
+,
+SELECT
+,
+    DELETE ON TABLE test.test TO user_test;
+--------------------
+GRANT TRIGGER, REFERENCES, UPDATE, TRUNCATE, INSERT, SELECT, DELETE ON TABLE test.test TO user_test;
+------------------------------------------------------------------------------------------------------------------------
+create table test.test (dt int) partition by list (dt) ()
+--------------------
+CREATE TABLE test.test (
+	dt int
+)
+PARTITION BY LIST (dt) (
+)
+------------------------------------------------------------------------------------------------------------------------
+reset enable_index_nestloop ;
+--------------------
+RESET enable_index_nestloop;
+------------------------------------------------------------------------------------------------------------------------
+alter table test.test truncate partition for (concat(substring(date_trunc('month',to_date('${day}') - interval '1' month),1,7), '-01'));
+--------------------
+ALTER TABLE test.test
+	TRUNCATE PARTITION FOR (concat(substring(date_trunc('month', to_date('${day}') - INTERVAL '1' MONTH), 1, 7), '-01'));
+------------------------------------------------------------------------------------------------------------------------
+CREATE table IF NOT EXISTS  test.test ( like test.test1 INCLUDING DISTRIBUTION);
+--------------------
+CREATE TABLE IF NOT EXISTS test.test (
+	LIKE test.test1 INCLUDING DISTRIBUTION
+);
+------------------------------------------------------------------------------------------------------------------------
+alter table test.test truncate partition for (to_date('${day}')-1); 
+--------------------
+ALTER TABLE test.test
+	TRUNCATE PARTITION FOR (to_date('${day}') - 1);
+------------------------------------------------------------------------------------------------------------------------
+CREATE FOREIGN TABLE IF NOT EXISTS test.test
+(
+	id 	bigint 								
+)
+SERVER obs_server 
+OPTIONS (
+format 'orc', 
+foldername '/test/test',
+   compression 'snappy',
+    version '0.12'
+) write only;
+--------------------
+CREATE FOREIGN TABLE IF NOT EXISTS test.test (
+	id bigint
+)
+SERVER obs_server
+OPTIONS (
+format 'orc',
+	foldername '/test/test',
+	compression 'snappy',
+	version '0.12'
+)
+WRITE ONLY;
+------------------------------------------------------------------------------------------------------------------------
+INSERT INTO
+  test
+WITH
+  aa AS (
+    select a from aaa
+    )
+select a from aa    
+--------------------
+INSERT INTO test
+WITH aa AS (
+		SELECT a
+		FROM aaa
+	)
+SELECT a
+FROM aa
+------------------------------------------------------------------------------------------------------------------------
+CREATE UNLOGGED TABLE lineitem (
+	L_ORDERKEY BIGINT NOT NULL,
+	L_QUANTITY DECIMAL(15, 2) NOT NULL,
+	L_SHIPDATE DATE NOT NULL,
+	language nvarchar2,
+   PARTIAL CLUSTER KEY  (l_shipdate, l_quantity)
+)
+WITH (
+	'orientation' = column
+)
+DISTRIBUTE BY hash (L_ORDERKEY)
+TO GROUP group1;
+--------------------
+CREATE UNLOGGED TABLE lineitem (
+	L_ORDERKEY BIGINT NOT NULL,
+	L_QUANTITY DECIMAL(15, 2) NOT NULL,
+	L_SHIPDATE DATE NOT NULL,
+	language nvarchar2,
+   PARTIAL CLUSTER KEY  (l_shipdate, l_quantity)
+)
+WITH (
+	'orientation' = column
+)
+DISTRIBUTE BY hash (L_ORDERKEY)
+TO GROUP group1;
+------------------------------------------------------------------------------------------------------------------------
+CREATE GLOBAL TABLE test_global (
+	L_ORDERKEY BIGINT NOT NULL
+)
+TO NODE node01;
+--------------------
+CREATE GLOBAL TABLE test_global (
+	L_ORDERKEY BIGINT NOT NULL
+)
+TO NODE node01;
+------------------------------------------------------------------------------------------------------------------------
+CREATE LOCAL TABLE test_local (
+	L_ORDERKEY BIGINT NOT NULL
+)
+--------------------
+CREATE LOCAL TABLE test_local (
+	L_ORDERKEY BIGINT NOT NULL
+)
+------------------------------------------------------------------------------------------------------------------------
+CREATE TEMP TABLE test_temporary (
+	L_ORDERKEY BIGINT NOT NULL
+)
+--------------------
+CREATE TEMPORARY TABLE test_temporary (
+	L_ORDERKEY BIGINT NOT NULL
+)
+------------------------------------------------------------------------------------------------------------------------
+CREATE TEMPORARY TABLE test_temp (
+	L_ORDERKEY BIGINT NOT NULL
+)
+--------------------
+CREATE TEMPORARY TABLE test_temp (
+	L_ORDERKEY BIGINT NOT NULL
+)
+------------------------------------------------------------------------------------------------------------------------
+CREATE GLOBAL TEMPORARY TABLE test_global_temp (
+	L_ORDERKEY BIGINT NOT NULL
+)
+--------------------
+CREATE GLOBAL TEMPORARY TABLE test_global_temp (
+	L_ORDERKEY BIGINT NOT NULL
+)
+------------------------------------------------------------------------------------------------------------------------
+create table if not exists test_comment
+(
+business_date nvarchar2 comment '业务日期', -- 录音创建日期
+big_area_name	nvarchar2 comment '门店大区'
+)
+comment 'TDA录音任务执行结果统计表'
+--------------------
+CREATE TABLE IF NOT EXISTS test_comment (
+	business_date nvarchar2 COMMENT '业务日期',
+	big_area_name nvarchar2 COMMENT '门店大区'
+)
+COMMENT 'TDA录音任务执行结果统计表'
+------------------------------------------------------------------------------------------------------------------------
+create table test_column_constraint
+(
+business_date nvarchar2 compress_mode DELTA, 
+big_area_name nvarchar2 COLLATE utf8_bin,
+col_constraint bigint not null,
+col_constraint2 bigint null,
+col_constraint3 bigint check (col_constraint3 > 0),
+col_constraint4 bigint unique,
+col_constraint5 bigint primary key，
+constraint cst check(col_constraint4 > 0)
+)
+--------------------
+CREATE TABLE test_column_constraint (
+	business_date nvarchar2 COMPRESS_MODE DELTA,
+	big_area_name nvarchar2 COLLATE utf8_bin,
+	col_constraint bigint NOT NULL,
+	col_constraint2 bigint NULL,
+	col_constraint3 bigint
+		CHECK (col_constraint3 > 0),
+	col_constraint4 bigint UNIQUE,
+	col_constraint5 bigint PRIMARY KEY,
+	CONSTRAINT cst CHECK (col_constraint4 > 0)
+)

@@ -15,23 +15,17 @@
  */
 package com.alibaba.druid.util;
 
-import com.alibaba.druid.support.logging.Log;
-import com.alibaba.druid.support.logging.LogFactory;
-
 import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 
 public class Utils {
     public static final int DEFAULT_BUFFER_SIZE = 1024 * 4;
-    private static final Log LOG = LogFactory.getLog(DruidDataSourceUtils.class);
 
     public static String read(InputStream in) {
         if (in == null) {
@@ -40,6 +34,38 @@ public class Utils {
 
         InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8);
         return read(reader);
+    }
+
+    public static Properties loadProperties(String resource) {
+        InputStream in = Utils.class.getClassLoader().getResourceAsStream(resource);
+        Properties properties = new Properties();
+        if (in != null) {
+            try {
+                properties.load(in);
+             } catch (IOException ignore) {
+                // ignored
+            }
+        }
+        return properties;
+    }
+
+    public static List<String> readLines(String resource) {
+        List<String> lines = new ArrayList<>();
+        InputStream in = Utils.class.getClassLoader().getResourceAsStream(resource);
+        if (in != null) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+                for (;;) {
+                    String line = reader.readLine();
+                    if (line == null) {
+                        break;
+                    }
+                    lines.add(line);
+                }
+            } catch (IOException ignore) {
+                // ignored
+            }
+        }
+        return lines;
     }
 
     public static String readFromResource(String resource) throws IOException {
@@ -187,11 +213,9 @@ public class Utils {
 
     static void trySetIntProperty(Properties properties, String key, Consumer<Integer> setter) {
         if (properties == null) {
-            LOG.error("propertiesisnull");
             return;
         }
         if (key == null || setter == null) {
-            LOG.error("keyisnullOrSetterisnull,|key=" + key + ",setter=" + setter);
             return;
         }
         String property = properties.getProperty(key);
@@ -199,19 +223,17 @@ public class Utils {
             try {
                 int value = Integer.parseInt(property);
                 setter.accept(value);
-            } catch (NumberFormatException e) {
-                LOG.error("illegal property '" + key + "' = " + property, e);
+            } catch (NumberFormatException ignored) {
+                // ignore
             }
         }
     }
 
     static void trySetLongProperty(Properties properties, String key, Consumer<Long> setter) {
         if (properties == null) {
-            LOG.error("propertiesisnull");
             return;
         }
         if (key == null || setter == null) {
-            LOG.error("keyisnullOrSetterisnull,|key=" + key + ",setter=" + setter);
             return;
         }
         String property = properties.getProperty(key);
@@ -219,18 +241,16 @@ public class Utils {
             try {
                 long value = Long.parseLong(property);
                 setter.accept(value);
-            } catch (NumberFormatException e) {
-                LOG.error("illegal property '" + key + "' = " + property, e);
+            } catch (NumberFormatException ignored) {
+                // ignore
             }
         }
     }
     static void trySetStringProperty(Properties properties, String key, Consumer<String> setter) {
         if (properties == null) {
-            LOG.error("propertiesisnull");
             return;
         }
         if (key == null || setter == null) {
-            LOG.error("keyisnullOrSetterisnull,|key=" + key + ",setter=" + setter);
             return;
         }
         String value = properties.getProperty(key);
@@ -240,11 +260,9 @@ public class Utils {
     }
     static void trySetBooleanProperty(Properties properties, String key, Consumer<Boolean> setter) {
         if (properties == null) {
-            LOG.error("propertiesisnull");
             return;
         }
         if (key == null || setter == null) {
-            LOG.error("keyisnullOrSetterisnull,|key=" + key + ",setter=" + setter);
             return;
         }
         Boolean value = getBoolean(properties, key);

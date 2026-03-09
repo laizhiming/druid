@@ -17,23 +17,32 @@ package com.alibaba.druid.sql.ast.expr;
 
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLExprImpl;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
 import com.alibaba.druid.sql.ast.statement.SQLTableSource;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public final class SQLAllColumnExpr extends SQLExprImpl {
+public final class SQLAllColumnExpr extends SQLExprImpl implements SQLName {
     private transient SQLTableSource resolvedTableSource;
 
     private SQLExpr owner;
     private List<SQLExpr> except;
+    private static final String name = "*";
+    private final List<SQLAliasedExpr> replace = new ArrayList<SQLAliasedExpr>();
 
     public SQLAllColumnExpr() {
     }
 
     public void output(StringBuilder buf) {
-        buf.append('*');
+        if (owner != null) {
+            owner.output(buf);
+            buf.append('.');
+        }
+        buf.append(name);
     }
 
     public SQLExpr getOwner() {
@@ -49,6 +58,10 @@ public final class SQLAllColumnExpr extends SQLExprImpl {
 
     public List<SQLExpr> getExcept() {
         return except;
+    }
+
+    public List<SQLAliasedExpr> getReplace() {
+        return replace;
     }
 
     public void setExcept(List<SQLExpr> except) {
@@ -68,11 +81,32 @@ public final class SQLAllColumnExpr extends SQLExprImpl {
         return o instanceof SQLAllColumnExpr;
     }
 
+    @Override
+    public String getSimpleName() {
+        return name;
+    }
+
     public SQLAllColumnExpr clone() {
         SQLAllColumnExpr x = new SQLAllColumnExpr();
+        x.setOwner(owner);
 
         x.resolvedTableSource = resolvedTableSource;
         return x;
+    }
+
+    @Override
+    public long nameHashCode64() {
+        return 0;
+    }
+
+    @Override
+    public long hashCode64() {
+        return 0;
+    }
+
+    @Override
+    public SQLColumnDefinition getResolvedColumn() {
+        return null;
     }
 
     public SQLTableSource getResolvedTableSource() {

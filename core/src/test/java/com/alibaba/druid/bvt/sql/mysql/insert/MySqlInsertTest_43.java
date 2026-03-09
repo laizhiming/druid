@@ -15,9 +15,7 @@
  */
 package com.alibaba.druid.bvt.sql.mysql.insert;
 
-import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.ast.expr.SQLNumberExpr;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlInsertStatement;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
@@ -92,7 +90,7 @@ public class MySqlInsertTest_43 extends TestCase {
                 "\tFROM sales_order t1\n" +
                 "\t\tJOIN (\n" +
                 "\t\t\tSELECT t2_1.warehouse_id, t2_1.external_batch_code\n" +
-                "\t\t\t\t, (CASE \n" +
+                "\t\t\t\t, (CASE\n" +
                 "\t\t\t\t\tWHEN t2_2.operation_type = 2\n" +
                 "\t\t\t\t\t\tOR t2_2.operation_type IS NULL\n" +
                 "\t\t\t\t\tTHEN '2'\n" +
@@ -120,7 +118,5 @@ public class MySqlInsertTest_43 extends TestCase {
                 "\t\t\tAND t2.businessType IS NOT NULL\n" +
                 "\tGROUP BY t1.warehouse_id, t2.businessType\n" +
                 ") a", insertStmt.toString());
-
     }
-
 }

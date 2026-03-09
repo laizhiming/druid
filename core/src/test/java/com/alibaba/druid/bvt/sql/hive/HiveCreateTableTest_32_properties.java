@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import com.alibaba.druid.util.JdbcConstants;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -29,30 +28,30 @@ public class HiveCreateTableTest_32_properties extends OracleTest {
         String sql = //
                 "create table aaaa (\n" +
                         "  id int not null COLPROPERTIES (name='pk',format='yyy',charset='utf8',type='string'）\n" +
-                        ") MAPPED by (name='AAAA')"; //
+                        ") MAPPED by (name='AAAA')";
 
         List<SQLStatement> statementList = SQLUtils.toStatementList(sql, JdbcConstants.HIVE);
         SQLStatement stmt = statementList.get(0);
         System.out.println(stmt.toString());
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         SchemaStatVisitor visitor = SQLUtils.createSchemaStatVisitor(JdbcConstants.HIVE);
         stmt.accept(visitor);
 
         assertEquals("CREATE TABLE aaaa (\n" +
                 "\tid int NOT NULL COLPROPERTIES (name = 'pk', format = 'yyy', charset = 'utf8', type = 'string')\n" +
-                ")\n" +
+                ") " +
                 "MAPPED BY (name = 'AAAA')", stmt.toString());
 
         assertEquals("CREATE TABLE aaaa (\n" +
                 "\tid int NOT NULL COLPROPERTIES (name = 'pk', format = 'yyy', charset = 'utf8', type = 'string')\n" +
-                ")\n" +
+                ") " +
                 "MAPPED BY (name = 'AAAA')", stmt.clone().toString());
 
         assertEquals("create table aaaa (\n" +
                 "\tid int not null colproperties (name = 'pk', format = 'yyy', charset = 'utf8', type = 'string')\n" +
-                ")\n" +
+                ") " +
                 "mapped by (name = 'AAAA')", stmt.toLowerCaseString());
 
         System.out.println("Tables : " + visitor.getTables());
@@ -68,20 +67,19 @@ public class HiveCreateTableTest_32_properties extends OracleTest {
         assertEquals(0, visitor.getOrderByColumns().size());
 
         assertTrue(visitor.containsTable("aaaa"));
-
     }
 
     public void test_mysql() throws Exception {
         String sql = //
                 "create table aaaa (\n" +
                         "  id int not null COLPROPERTIES (name='pk',format='yyy',charset='utf8',type='string'）\n" +
-                        ")"; //
+                        ")";
 
         List<SQLStatement> statementList = SQLUtils.toStatementList(sql, JdbcConstants.MYSQL);
         SQLStatement stmt = statementList.get(0);
         System.out.println(stmt.toString());
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         SchemaStatVisitor visitor = SQLUtils.createSchemaStatVisitor(JdbcConstants.MYSQL);
         stmt.accept(visitor);
@@ -111,7 +109,5 @@ public class HiveCreateTableTest_32_properties extends OracleTest {
         assertEquals(0, visitor.getOrderByColumns().size());
 
         assertTrue(visitor.containsTable("aaaa"));
-
     }
-
 }

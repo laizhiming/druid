@@ -22,6 +22,8 @@ import com.alibaba.druid.util.StringUtils;
 
 import java.util.TimeZone;
 
+import static com.alibaba.druid.sql.parser.DialectFeature.ParserFeature.*;
+
 public class SQLParser {
     protected final Lexer lexer;
     protected DbType dbType;
@@ -72,6 +74,15 @@ public class SQLParser {
         }
     }
 
+    protected void acceptIdentifier(Long hash) {
+        if (lexer.identifierEquals(hash)) {
+            lexer.nextToken();
+        } else {
+            setErrorEndPos(lexer.pos());
+            throw new ParserException("syntax error, expect " + hash + ", actual " + lexer.token + ", " + lexer.info());
+        }
+    }
+
     protected String tableAlias() {
         return tableAlias(false);
     }
@@ -83,7 +94,7 @@ public class SQLParser {
                 || token == Token.SELECT
                 || token == Token.FROM
                 || token == Token.WHERE) {
-            if (token == Token.WHERE && dbType == DbType.odps) {
+            if (token == Token.WHERE && tableAliasFeatureEnabled(TableAliasConnectWhere)) {
                 return null;
             }
 
@@ -171,7 +182,7 @@ public class SQLParser {
                         return null;
                     }
                     return ident;
-                } else if (hash == FnvHash.Constants.ASOF && dbType == DbType.clickhouse) {
+                } else if (hash == FnvHash.Constants.ASOF && tableAliasFeatureEnabled(TableAliasAsof)) {
                     Lexer.SavePoint mark = lexer.mark();
                     lexer.nextToken();
                     if (lexer.token == Token.LEFT || lexer.token == Token.JOIN) {
@@ -184,32 +195,165 @@ public class SQLParser {
         }
 
         if (!must) {
-            switch (token) {
-                case LEFT:
-                case RIGHT:
-                case INNER:
-                case FULL: {
+            String aliasFromOptional = tableAliasFromOptionalKeyword(token);
+            if (aliasFromOptional != null) {
+                return aliasFromOptional;
+            }
+        }
+
+        if (must) {
+            String aliasFromRest = tableAliasFromRequiredRest();
+            if (aliasFromRest != null) {
+                return aliasFromRest;
+            }
+            return this.alias();
+        }
+
+        return this.as();
+    }
+
+    private String tableAliasFromOptionalKeyword(Token token) {
+        switch (token) {
+            case LEFT:
+            case RIGHT:
+            case INNER:
+            case FULL: {
+                Lexer.SavePoint mark = lexer.mark();
+                String strVal = lexer.stringVal();
+                lexer.nextToken();
+                if (lexer.token == Token.OUTER
+                        || lexer.token == Token.JOIN
+                        || lexer.identifierEquals(FnvHash.Constants.ANTI)
+                        || lexer.identifierEquals(FnvHash.Constants.SEMI)) {
+                    lexer.reset(mark);
+                    return null;
+                }
+                return strVal;
+            }
+            case OUTER:
+            case IN:
+            case SET:
+            case BY: {
+                Lexer.SavePoint mark = lexer.mark();
+                String strVal = lexer.stringVal();
+                lexer.nextToken();
+                switch (lexer.token) {
+                    case WHERE:
+                    case GROUP:
+                    case ORDER:
+                    case LEFT:
+                    case RIGHT:
+                    case FULL:
+                    case RPAREN:
+                    case ON:
+                    case JOIN:
+                    case SEMI:
+                        return strVal;
+                    default:
+                        lexer.reset(mark);
+                        break;
+                }
+                break;
+            }
+            case FOR:
+            case GRANT:
+            case CHECK:
+            case LEAVE:
+            case TRIGGER:
+            case CREATE:
+            case ASC:
+            case INOUT:
+            case DESC:
+            case SCHEMA:
+            case IS:
+            case DECLARE:
+            case DROP:
+            case FETCH:
+            case LOCK:
+                if (tableAliasFeatureEnabled(TableAliasLock)) {
+                    String strVal = lexer.stringVal();
+                    lexer.nextToken();
+                    return strVal;
+                }
+                break;
+            case PARTITION:
+                if (tableAliasFeatureEnabled(TableAliasPartition)) {
                     Lexer.SavePoint mark = lexer.mark();
                     String strVal = lexer.stringVal();
                     lexer.nextToken();
-                    if (lexer.token == Token.OUTER
-                            || lexer.token == Token.JOIN
-                            || lexer.identifierEquals(FnvHash.Constants.ANTI)
-                            || lexer.identifierEquals(FnvHash.Constants.SEMI)) {
+                    if (lexer.token == Token.LPAREN) {
                         lexer.reset(mark);
                         return null;
-                    } else {
-                        return strVal;
                     }
+                    return strVal;
                 }
-                case OUTER:
-                case IN:
-                case SET:
-                case BY: {
+                break;
+            case TABLE:
+                if (tableAliasFeatureEnabled(TableAliasTable)) {
                     Lexer.SavePoint mark = lexer.mark();
                     String strVal = lexer.stringVal();
                     lexer.nextToken();
                     switch (lexer.token) {
+                        case FROM:
+                        case GROUP:
+                        case ORDER:
+                        case ON:
+                            return strVal;
+                        default:
+                            lexer.reset(mark);
+                            break;
+                    }
+                }
+                break;
+            case SHOW:
+            case REFERENCES:
+            case REPEAT:
+            case USE:
+            case MOD:
+            case OUT: {
+                String strVal = lexer.stringVal();
+                lexer.nextToken();
+                return strVal;
+            }
+            case QUALIFY: {
+                String strVal = lexer.stringVal();
+                Lexer.SavePoint mark = lexer.mark();
+                lexer.nextToken();
+                if (lexer.token != Token.WHERE
+                        && lexer.token != Token.GROUP
+                        && lexer.token != Token.HAVING
+                        && lexer.token != Token.WINDOW
+                        && lexer.token != Token.ORDER
+                        && lexer.token != Token.LIMIT
+                        && lexer.token != Token.EOF
+                        && lexer.token != Token.COMMA
+                ) {
+                    lexer.reset(mark);
+                    return null;
+                }
+                return strVal;
+            }
+            case DISTRIBUTE: {
+                String strVal = lexer.stringVal();
+                Lexer.SavePoint mark = lexer.mark();
+                lexer.nextToken();
+                if (lexer.token == Token.BY) {
+                    lexer.reset(mark);
+                    return null;
+                }
+                return strVal;
+            }
+            case MINUS:
+            case EXCEPT:
+            case LIMIT:
+            case BETWEEN:
+                if (tableAliasFeatureEnabled(TableAliasBetween)) {
+                    Lexer.SavePoint mark = lexer.mark();
+                    String strVal = lexer.stringVal();
+                    lexer.nextToken();
+                    switch (lexer.token) {
+                        case EOF:
+                        case COMMA:
                         case WHERE:
                         case GROUP:
                         case ORDER:
@@ -219,134 +363,75 @@ public class SQLParser {
                         case RPAREN:
                         case ON:
                         case JOIN:
-                        case SEMI: {
+                        case SEMI:
                             return strVal;
-                        }
                         default:
                             lexer.reset(mark);
                             break;
                     }
-                    break;
                 }
-                case FOR:
-                case GRANT:
-                case CHECK:
-                case LEAVE:
-                case TRIGGER:
-                case CREATE:
-                case ASC:
-                case INOUT:
-                case DESC:
-                case SCHEMA:
-                case IS:
-                case DECLARE:
-                case DROP:
-                case FETCH:
-                case LOCK:
-                    if (dbType == DbType.odps || dbType == DbType.hive) {
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
+                break;
+            case UNION: {
+                Lexer.SavePoint mark = lexer.mark();
+                String strVal = lexer.stringVal();
+                lexer.nextToken();
+                switch (lexer.token) {
+                    case GROUP:
+                    case ORDER:
+                    case SEMI:
+                    case LEFT:
+                    case RIGHT:
+                    case INNER:
+                    case JOIN:
+                    case RPAREN:
                         return strVal;
-                    }
-                    break;
-                case PARTITION:
-                    if (dbType == DbType.odps || dbType == DbType.hive) {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        if (lexer.token == Token.LPAREN) {
-                            lexer.reset(mark);
-                            return null;
-                        }
-                        return strVal;
-                    }
-                    break;
-                case TABLE:
-                    if (dbType == DbType.odps) {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        switch (lexer.token) {
-                            case FROM:
-                            case GROUP:
-                            case ORDER:
-                            case ON:
-                                return strVal;
-                            default:
-                                lexer.reset(mark);
-                                break;
-                        }
-                    }
-                    break;
-                case SHOW:
-                case REFERENCES:
-                case REPEAT:
-                case USE:
-                case MOD:
-                case OUT: {
-                    String strVal = lexer.stringVal();
-                    lexer.nextToken();
-                    return strVal;
-                }
-                case QUALIFY: {
-                    String strVal = lexer.stringVal();
-                    Lexer.SavePoint mark = lexer.mark();
-                    lexer.nextToken();
-                    if (lexer.token != Token.WHERE
-                            && lexer.token != Token.GROUP
-                            && lexer.token != Token.HAVING
-                            && lexer.token != Token.WINDOW
-                            && lexer.token != Token.ORDER
-                            && lexer.token != Token.LIMIT
-                            && lexer.token != Token.EOF
-                            && lexer.token != Token.COMMA
-                    ) {
+                    default:
                         lexer.reset(mark);
                         return null;
-                    } else {
-                        return strVal;
-                    }
                 }
-                case DISTRIBUTE: {
-                    String strVal = lexer.stringVal();
+            }
+            default:
+                break;
+        }
+
+        return null;
+    }
+
+    private String tableAliasFromRequiredRest() {
+        if (tableAliasFeatureEnabled(TableAliasRest)) {
+            switch (lexer.token) {
+                case GROUP:
+                case ORDER: {
                     Lexer.SavePoint mark = lexer.mark();
+                    String strVal = lexer.stringVal();
                     lexer.nextToken();
                     if (lexer.token == Token.BY) {
                         lexer.reset(mark);
                         return null;
-                    } else {
-                        return strVal;
                     }
+                    return strVal;
                 }
-                case MINUS:
-                case EXCEPT:
-                case LIMIT:
-                case BETWEEN:
-                    if (dbType == DbType.odps) {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        switch (lexer.token) {
-                            case EOF:
-                            case COMMA:
-                            case WHERE:
-                            case GROUP:
-                            case ORDER:
-                            case LEFT:
-                            case RIGHT:
-                            case FULL:
-                            case RPAREN:
-                            case ON:
-                            case JOIN:
-                            case SEMI:
-                                return strVal;
-                            default:
-                                lexer.reset(mark);
-                                break;
-                        }
-                    }
-                    break;
                 case UNION: {
+                    Lexer.SavePoint mark = lexer.mark();
+                    String strVal = lexer.stringVal();
+                    lexer.nextToken();
+                    if (lexer.token == Token.ALL) {
+                        lexer.reset(mark);
+                        return null;
+                    }
+                    return strVal;
+                }
+                case LIMIT: {
+                    Lexer.SavePoint mark = lexer.mark();
+                    String strVal = lexer.stringVal();
+                    lexer.nextToken();
+                    if (lexer.token == Token.LITERAL_INT) {
+                        lexer.reset(mark);
+                        return null;
+                    }
+                    return strVal;
+                }
+                case BETWEEN: {
                     Lexer.SavePoint mark = lexer.mark();
                     String strVal = lexer.stringVal();
                     lexer.nextToken();
@@ -358,7 +443,6 @@ public class SQLParser {
                         case RIGHT:
                         case INNER:
                         case JOIN:
-                        case RPAREN:
                             return strVal;
                         default:
                             lexer.reset(mark);
@@ -369,70 +453,11 @@ public class SQLParser {
                     break;
             }
         }
+        return null;
+    }
 
-        if (must) {
-            if (dbType == DbType.odps) {
-                switch (lexer.token) {
-                    case GROUP:
-                    case ORDER: {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        if (lexer.token == Token.BY) {
-                            lexer.reset(mark);
-                            return null;
-                        } else {
-                            return strVal;
-                        }
-                    }
-                    case UNION: {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        if (lexer.token == Token.ALL) {
-                            lexer.reset(mark);
-                            return null;
-                        } else {
-                            return strVal;
-                        }
-                    }
-                    case LIMIT: {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        if (lexer.token == Token.LITERAL_INT) {
-                            lexer.reset(mark);
-                            return null;
-                        } else {
-                            return strVal;
-                        }
-                    }
-                    case BETWEEN: {
-                        Lexer.SavePoint mark = lexer.mark();
-                        String strVal = lexer.stringVal();
-                        lexer.nextToken();
-                        switch (lexer.token) {
-                            case GROUP:
-                            case ORDER:
-                            case SEMI:
-                            case LEFT:
-                            case RIGHT:
-                            case INNER:
-                            case JOIN:
-                                return strVal;
-                            default:
-                                lexer.reset(mark);
-                                return null;
-                        }
-                    }
-                    default:
-                        break;
-                }
-            }
-            return this.alias();
-        }
-
-        return this.as();
+    private boolean tableAliasFeatureEnabled(DialectFeature.ParserFeature feature) {
+        return dialectFeatureEnabled(feature);
     }
 
     protected String as() {
@@ -451,7 +476,7 @@ public class SQLParser {
             }
 
             // for oracle
-            if (dbType == DbType.oracle && (lexer.token == Token.COMMA || lexer.token == Token.FROM)) {
+            if (dialectFeatureEnabled(AsCommaFrom) && (lexer.token == Token.COMMA || lexer.token == Token.FROM)) {
                 return null;
             }
 
@@ -481,7 +506,7 @@ public class SQLParser {
         } else if (lexer.token == Token.IDENTIFIER) {
             alias = lexer.stringVal();
             boolean skip = false;
-            if (dbType == DbType.hive || dbType == DbType.odps) {
+            if (dialectFeatureEnabled(AsSkip)) {
                 skip = "TBLPROPERTIES".equalsIgnoreCase(alias);
             }
             if (skip) {
@@ -565,7 +590,7 @@ public class SQLParser {
                 }
                 case CLOSE:
                 case SEQUENCE:
-                    if (dbType == DbType.mysql || dbType == DbType.odps || dbType == DbType.hive) {
+                    if (dialectFeatureEnabled(AsSequence)) {
                         alias = lexer.stringVal();
                         lexer.nextToken();
                         break;
@@ -585,7 +610,7 @@ public class SQLParser {
                 case RIGHT:
                 case LEFT:
                 case DATABASE:
-                    if (dbType == DbType.odps || dbType == DbType.hive) {
+                    if (dialectFeatureEnabled(AsDatabase)) {
                         alias = lexer.stringVal();
                         lexer.nextToken();
                         break;
@@ -595,7 +620,7 @@ public class SQLParser {
                 case ORDER:
                 case DISTRIBUTE:
                 case DEFAULT:
-                    if (dbType == DbType.odps || dbType == DbType.hive) {
+                    if (dialectFeatureEnabled(AsDefault)) {
                         Lexer.SavePoint mark = lexer.mark();
                         alias = lexer.stringVal();
                         lexer.nextToken();
@@ -639,7 +664,7 @@ public class SQLParser {
         } else if (lexer.token == Token.LITERAL_CHARS) {
             alias = "'" + lexer.stringVal() + "'";
             lexer.nextToken();
-        } else if (lexer.token == Token.LITERAL_FLOAT && dbType == DbType.odps) {
+        } else if (lexer.token == Token.LITERAL_FLOAT && dialectFeatureEnabled(AliasLiteralFloat)) {
             String numStr = lexer.numberString();
             lexer.nextToken();
             if (lexer.token == Token.IDENTIFIER) {
@@ -871,9 +896,7 @@ public class SQLParser {
     }
 
     public void accept(Token token) {
-        if (lexer.token == token) {
-            lexer.nextToken();
-        } else {
+        if (!lexer.nextIf(token)) {
             setErrorEndPos(lexer.pos());
             printError(token);
         }
@@ -923,5 +946,9 @@ public class SQLParser {
 
     protected SQLCreateTableStatement newCreateStatement() {
         return new SQLCreateTableStatement(dbType);
+    }
+
+    protected boolean dialectFeatureEnabled(DialectFeature.ParserFeature feature) {
+        return this.lexer.dialectFeature.isEnabled(feature);
     }
 }

@@ -16,6 +16,7 @@
 package com.alibaba.druid.sql.dialect.postgresql.visitor;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.SQLDialect;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
@@ -27,6 +28,7 @@ import com.alibaba.druid.sql.dialect.oracle.ast.stmt.*;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleFunctionDataType;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleProcedureDataType;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitor;
+import com.alibaba.druid.sql.dialect.postgresql.PG;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.*;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.*;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.FetchClause;
@@ -41,13 +43,18 @@ import java.util.Set;
 
 public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor, OracleASTVisitor {
     public PGOutputVisitor(StringBuilder appender) {
-        super(appender);
-        this.dbType = DbType.postgresql;
+        super(appender, DbType.postgresql);
+    }
+    public PGOutputVisitor(StringBuilder appender, DbType dbType, SQLDialect dialect) {
+        super(appender, dbType, dialect);
     }
 
     public PGOutputVisitor(StringBuilder appender, boolean parameterized) {
-        super(appender, parameterized);
-        this.dbType = DbType.postgresql;
+    super(appender, DbType.postgresql, PG.DIALECT, parameterized);
+    }
+
+    public PGOutputVisitor(StringBuilder appender, DbType dbType, SQLDialect dialect, boolean parameterized) {
+        super(appender, dbType, dialect, parameterized);
     }
 
     @Override
@@ -141,39 +148,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             x.getInto().accept(this);
         }
 
-        if (x.getFrom() != null) {
-            println();
-            print0(ucase ? "FROM " : "from ");
-            if (x.getCommentsAfaterFrom() != null) {
-                printAfterComments(x.getCommentsAfaterFrom());
-                println();
-            }
-            x.getFrom().accept(this);
-        }
-
+        printFrom(x);
         printWhere(x);
-
-        if (x.getGroupBy() != null) {
-            println();
-            x.getGroupBy().accept(this);
-        }
-
-        final List<SQLWindow> windows = x.getWindows();
-        if (windows != null && windows.size() > 0) {
-            println();
-            print0(ucase ? "WINDOW " : "window ");
-            printAndAccept(windows, ", ");
-        }
-
-        if (x.getOrderBy() != null) {
-            println();
-            x.getOrderBy().accept(this);
-        }
-
-        if (x.getLimit() != null) {
-            println();
-            x.getLimit().accept(this);
-        }
+        printGroupBy(x);
+        printWindow(x);
+        printOrderBy(x);
+        printLimit(x);
 
         if (x.getFetch() != null) {
             println();
@@ -199,7 +179,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "ONLY " : "only ");
         }
 
-        printlnAndAccept(x.getTableSources(), ", ");
+        printlnAndAccept(x.getTableSources(), ",");
 
         if (x.getRestartIdentity() != null) {
             if (x.getRestartIdentity().booleanValue()) {
@@ -275,17 +255,36 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
         printInsertColumns(x.getColumns());
 
+        printValuesOrQuery(x);
+
+        printOnConflict(x);
+
+        printReturning(x);
+        return false;
+    }
+
+    protected void printReturning(PGInsertStatement x) {
+        if (x.getReturning() != null) {
+            println();
+            print0(ucase ? "RETURNING " : "returning ");
+            x.getReturning().accept(this);
+        }
+    }
+
+    protected void printValuesOrQuery(PGInsertStatement x) {
         if (x.getValues() != null) {
             println();
             print0(ucase ? "VALUES " : "values ");
-            printlnAndAccept(x.getValuesList(), ", ");
+            printlnAndAccept(x.getValuesList(), ",");
         } else {
             if (x.getQuery() != null) {
                 println();
                 x.getQuery().accept(this);
             }
         }
+    }
 
+    protected void printOnConflict(PGInsertStatement x) {
         List<SQLExpr> onConflictTarget = x.getOnConflictTarget();
         List<SQLUpdateSetItem> onConflictUpdateSetItems = x.getOnConflictUpdateSetItems();
         boolean onConflictDoNothing = x.isOnConflictDoNothing();
@@ -326,14 +325,6 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
                 }
             }
         }
-
-        if (x.getReturning() != null) {
-            println();
-            print0(ucase ? "RETURNING " : "returning ");
-            x.getReturning().accept(this);
-        }
-
-        return false;
     }
 
     @Override
@@ -397,15 +388,24 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     public boolean visit(PGFunctionTableSource x) {
         x.getExpr().accept(this);
 
-        if (x.getAlias() != null) {
-            print0(ucase ? " AS " : " as ");
-            print0(x.getAlias());
+        String alias = x.getAlias();
+        List<SQLParameter> parameters = x.getParameters();
+        if (alias != null || !x.getParameters().isEmpty()) {
+            print0(ucase ? " AS" : " as");
         }
 
-        if (x.getParameters().size() > 0) {
+        if (alias != null) {
+            print(' ');
+            print0(alias);
+        }
+
+        if (!parameters.isEmpty()) {
+            incrementIndent();
+            println();
             print('(');
-            printAndAccept(x.getParameters(), ", ");
+            printAndAccept(parameters, ", ");
             print(')');
+            decrementIndent();
         }
 
         return false;
@@ -443,11 +443,32 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     @Override
     public boolean visit(PGExtractExpr x) {
-        print0(ucase ? "EXTRACT (" : "extract (");
+        print0(ucase ? "EXTRACT(" : "extract(");
         print0(x.getField().name());
         print0(ucase ? " FROM " : " from ");
         x.getSource().accept(this);
         print(')');
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGAttrExpr x) {
+        int curLen = this.appender.length();
+        if (curLen > 0) {
+            char c = this.appender.charAt(curLen - 1);
+            if (!(c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
+                this.appender.append(" ");
+            }
+        }
+
+        x.getName().accept(this);
+        if (x.getMode() == PGAttrExpr.PGExprMode.EQ) {
+            print0(" = ");
+        } else {
+            print0(" ");
+        }
+
+        x.getValue().accept(this);
         return false;
     }
 
@@ -652,6 +673,45 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
+    public boolean visit(PGCreateDatabaseStatement x) {
+        printUcase("CREATE DATABASE ");
+
+        if (x.getName() != null) {
+            x.getName().accept(this);
+        }
+
+        if (x.isHaveWith()) {
+            printUcase(" WITH");
+        }
+
+        for (PGAttrExpr attrExpr : x.getStats()) {
+            attrExpr.accept(this);
+        }
+
+        return false;
+    }
+
+    @Override
+    public boolean visit(PGDropDatabaseStatement x) {
+        print0(ucase ? "DROP DATABASE " : "drop database ");
+
+        if (x.isIfExists()) {
+            print0(ucase ? "IF EXISTS " : "if exists ");
+        }
+
+        x.getName().accept(this);
+
+        if (x.isForce()) {
+            if (x.isUsingWith()) {
+                print0(ucase ? " WITH" : " with");
+            }
+            print0(ucase ? " FORCE" : " force");
+        }
+
+        return false;
+    }
+
+    @Override
     public boolean visit(PGCreateSchemaStatement x) {
         printUcase("CREATE SCHEMA ");
         if (x.isIfNotExists()) {
@@ -670,16 +730,27 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public void endVisit(PGDropSchemaStatement x) {
+    public boolean visit(PGDropSchemaStatement x) {
         printUcase("DROP SCHEMA ");
         if (x.isIfExists()) {
             printUcase("IF EXISTS ");
         }
-        x.getSchemaName().accept(this);
-    }
 
-    @Override
-    public boolean visit(PGDropSchemaStatement x) {
+        List<SQLName> multipleName = x.getMultipleNames();
+        for (int i = 0; i < multipleName.size(); i++) {
+            if (i > 0) {
+                printUcase(", ");
+            }
+            multipleName.get(i).accept(this);
+        }
+
+        if (x.isCascade()) {
+            print0(ucase ? " CASCADE" : " cascade");
+        }
+        if (x.isRestrict()) {
+            print0(ucase ? " RESTRICT" : " restrict");
+        }
+
         return false;
     }
 
@@ -842,12 +913,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    public boolean visit(OracleExceptionStatement x) {
+    public boolean visit(SQLExceptionStatement x) {
         return false;
     }
 
     @Override
-    public boolean visit(OracleExceptionStatement.Item x) {
+    public boolean visit(SQLExceptionStatement.Item x) {
         return false;
     }
 
@@ -1424,8 +1495,8 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         println();
         print0(ucase ? "FROM " : "from ");
         if (x.getFrom() != null) {
-            if (x.getCommentsAfaterFrom() != null) {
-                printAfterComments(x.getCommentsAfaterFrom());
+            if (x.getCommentsAfterFrom() != null) {
+                printAfterComments(x.getCommentsAfterFrom());
                 println();
             }
             x.getFrom().accept(this);
@@ -1872,6 +1943,19 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
+    public boolean visit(SQLCreateTableStatement x) {
+        int curLen = this.appender.length();
+        if (curLen > 0) {
+            char c = this.appender.charAt(curLen - 1);
+            if (!(c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
+                this.appender.append(" ");
+            }
+        }
+
+        return super.visit(x);
+    }
+
+    @Override
     public boolean visit(OracleCreateTableStatement x) {
         printCreateTable(x, false);
 
@@ -1939,11 +2023,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "MONITORING" : "monitoring");
         }
 
-        if (x.getPartitioning() != null) {
-            println();
-            print0(ucase ? "PARTITION BY " : "partition by ");
-            x.getPartitioning().accept(this);
-        }
+        printPartitionBy(x);
 
         if (x.getCluster() != null) {
             println();
@@ -2702,7 +2782,10 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     public boolean visit(SQLArrayDataType x) {
-        x.getComponentType().accept(this);
+        SQLDataType componentType = x.getComponentType();
+        if (componentType != null) {
+            componentType.accept(this);
+        }
         print('[');
         printAndAccept(x.getArguments(), ", ");
         print(']');
@@ -2710,6 +2793,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     public boolean visit(SQLCharExpr x, boolean parameterized) {
+        if (x.hasBeforeComment()) {
+            printlnComments(x.getBeforeCommentsDirect());
+        }
         if (parameterized) {
             print('?');
             incrementReplaceCunt();
@@ -2742,7 +2828,9 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         } else {
             printChars(x.getText());
         }
-
+        if (x.hasAfterComment()) {
+            printAfterComments(x.getAfterCommentsDirect());
+        }
         return false;
     }
 
@@ -2786,8 +2874,12 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         if (x.isTruncate()) {
             print0(ucase ? "TRUNCATE " : "truncate ");
         }
+        printVacuumRest(x);
         printAndAccept(x.getTableSources(), ", ");
         return false;
+    }
+
+    protected void printVacuumRest(PGVacuumStatement x){
     }
 
     @Override
@@ -2825,6 +2917,17 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
             print0(ucase ? "RESET " : "reset ");
             x.getResetParameterName().accept(this);
         }
+        if (x.isHaveWith()) {
+            print0(ucase ? "WITH " : "with ");
+        }
+        if (x.getAllowConnections() != null) {
+            print0(ucase ? "ALLOW_CONNECTIONS " : "allow_connections ");
+            print0(String.valueOf(x.getAllowConnections()));
+        }
+        if (x.getSetTemplateMark() != null) {
+            print0(ucase ? "IS_TEMPLATE " : "is_template ");
+            print0(String.valueOf(x.getSetTemplateMark()));
+        }
         return false;
     }
 
@@ -2836,7 +2939,7 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
     }
 
     @Override
-    protected void printeAutoIncrement() {
+    protected void printAutoIncrement() {
         print0(ucase ? " GENERATED ALWAYS AS IDENTITY" : " generated always as identity");
     }
 
@@ -2846,7 +2949,11 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         SQLColumnDefinition.Identity identity = x.getIdentity();
 
         if (generatedAlwaysAs != null || identity != null) {
-            print0(ucase ? " GENERATED ALWAYS AS " : " generated always as ");
+            if (x.isGenerateByDefault()) {
+                print0(ucase ? " GENERATED BY DEFAULT AS " : " generated by default as ");
+            } else {
+                print0(ucase ? " GENERATED ALWAYS AS " : " generated always as ");
+            }
             if (generatedAlwaysAs != null) {
                 printExpr(generatedAlwaysAs, parameterized);
                 print(' ');
@@ -2861,7 +2968,11 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
         Integer seed = x.getSeed();
         if (seed != null) {
             print0(ucase ? " (INCREMENT BY " : " (increment by ");
-            print(x.getIncrement());
+            if (x.getIncrement() != null) {
+                print(x.getIncrement());
+            } else {
+                print('1');
+            }
             print0(ucase ? " START WITH  " : " start with  ");
             print(seed);
             print(')');
@@ -2901,5 +3012,16 @@ public class PGOutputVisitor extends SQLASTOutputVisitor implements PGASTVisitor
 
     protected boolean legacyCube() {
         return true;
+    }
+
+    protected void printTableOption(SQLExpr name, SQLExpr value, int index) {
+        if (index != 0) {
+            print(",");
+            println();
+        }
+        String key = name.toString();
+        print0(key);
+        print0(" = ");
+        value.accept(this);
     }
 }

@@ -27,7 +27,6 @@ import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
 import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
 import com.alibaba.druid.sql.ast.statement.*;
-import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlCreateTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlRenameTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitorAdapter;
@@ -417,6 +416,7 @@ public class SchemaRepository {
             case mariadb:
             case tidb:
             case sqlite:
+            case polardbx:
                 resolveVisitor = new SchemaResolveVisitorFactory.MySqlResolveVisitor(this, optionsValue);
                 break;
             case oracle:
@@ -492,7 +492,7 @@ public class SchemaRepository {
                                 .append("' doesn't exist\n");
                     } else {
                         MySqlCreateTableStatement createTableStmt = (MySqlCreateTableStatement) schemaObject.getStatement();
-                        createTableStmt.showCoumns(buf);
+                        createTableStmt.showColumns(buf);
                     }
                 } else if (stmt instanceof SQLShowCreateTableStatement) {
                     SQLShowCreateTableStatement showCreateTableStmt = (SQLShowCreateTableStatement) stmt;
@@ -713,11 +713,6 @@ public class SchemaRepository {
             return false;
         }
 
-        public boolean visit(HiveCreateTableStatement x) {
-            acceptCreateTable(x);
-            return false;
-        }
-
         public boolean visit(MySqlCreateTableStatement x) {
             acceptCreateTable(x);
             return false;
@@ -916,11 +911,6 @@ public class SchemaRepository {
             return false;
         }
 
-        public boolean visit(HiveCreateTableStatement x) {
-            acceptCreateTable(x);
-            return false;
-        }
-
         public boolean visit(SQLDropTableStatement x) {
             acceptDropTable(x);
             return false;
@@ -1021,8 +1011,15 @@ public class SchemaRepository {
 
                     if (column == null) {
                         column = new SQLColumnDefinition();
-                        column.setDataType(
-                                selectItem.computeDataType());
+                        SQLDataType dataType = null;
+                        try {
+                            dataType = selectItem.computeDataType();
+                        } catch (Throwable ignored) {
+                            // ignore
+                        }
+                        if (dataType != null) {
+                            column.setDataType(dataType.clone());
+                        }
                     }
 
                     String name = selectItem.computeAlias();
@@ -1180,10 +1177,12 @@ public class SchemaRepository {
 
         Schema schema = findSchema(schemaName, true);
         SchemaObject object = schema.findTable(x.nameHashCode64());
+        schema.getTables(x.getTableSource());
         if (object != null) {
             SQLCreateTableStatement stmt = (SQLCreateTableStatement) object.getStatement();
             if (stmt != null) {
                 stmt.apply(x);
+                x.getTableSource().setSchemaObject(object);
                 return true;
             }
         }

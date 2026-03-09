@@ -21,7 +21,6 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleSchemaStatVisitor;
 import com.alibaba.druid.util.JdbcConstants;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -167,9 +166,9 @@ public class OracleCreateTableTest50 extends OracleTest {
         SQLStatement stmt = statementList.get(0);
         print(statementList);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
-        Assert.assertEquals("CREATE TABLE \"SC_001\".\"TB_001\" (\n" +
+        assertEquals("CREATE TABLE \"SC_001\".\"TB_001\" (\n" +
                         "\t\"ID\" NUMBER NOT NULL ENABLE,\n" +
                         "\t\"GMT_CREATE\" DATE,\n" +
                         "\t\"GMT_MODIFIED\" DATE,\n" +
@@ -249,38 +248,38 @@ public class OracleCreateTableTest50 extends OracleTest {
                         ")\n" +
                         "PARTITION BY HASH (\"COMPANY_ID\") (\n" +
                         "\tPARTITION \"PRODUCT_HASH_P1\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P2\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P3\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P4\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P5\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P6\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P7\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P8\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P9\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P10\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P11\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P12\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P13\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P14\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P15\"\n" +
-                        "\t\tTABLESPACE \"APPDATA1M\", \n" +
+                        "\t\tTABLESPACE \"APPDATA1M\",\n" +
                         "\tPARTITION \"PRODUCT_HASH_P16\"\n" +
                         "\t\tTABLESPACE \"APPDATA1M\"\n" +
-                        ")",//
+                        ")",
                 SQLUtils.toSQLString(stmt, JdbcConstants.ORACLE));
 
         OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();
@@ -292,10 +291,10 @@ public class OracleCreateTableTest50 extends OracleTest {
         System.out.println("relationships : " + visitor.getRelationships());
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(1, visitor.getTables().size());
+        assertEquals(1, visitor.getTables().size());
 
-        Assert.assertEquals(58, visitor.getColumns().size());
+        assertEquals(58, visitor.getColumns().size());
 
-        Assert.assertTrue(visitor.containsColumn("SC_001.TB_001", "ID"));
+        assertTrue(visitor.containsColumn("SC_001.TB_001", "ID"));
     }
 }

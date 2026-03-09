@@ -1,7 +1,9 @@
 package com.alibaba.druid.sql.dialect.starrocks.ast;
 
+import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLObjectImpl;
+import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
 import com.alibaba.druid.sql.ast.statement.SQLTableElement;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
@@ -16,8 +18,21 @@ import java.util.List;
 public class StarRocksIndexDefinition extends SQLObjectImpl implements SQLTableElement {
     private SQLName indexName;
     private List<SQLName> columns = new ArrayList<SQLName>();
-    private boolean usingBitmap;
-    private String comment;
+    private String indexType;
+    private SQLExpr comment;
+    private final List<SQLAssignItem> indexOption = new ArrayList<SQLAssignItem>();
+
+    public List<SQLAssignItem> getIndexOption() {
+        return indexOption;
+    }
+
+    public String getIndexType() {
+        return indexType;
+    }
+
+    public void setIndexType(String indexType) {
+        this.indexType = indexType;
+    }
 
     public SQLName getIndexName() {
         return indexName;
@@ -35,19 +50,11 @@ public class StarRocksIndexDefinition extends SQLObjectImpl implements SQLTableE
         this.columns = columns;
     }
 
-    public boolean isUsingBitmap() {
-        return usingBitmap;
-    }
-
-    public void setUsingBitmap(boolean usingBitmap) {
-        this.usingBitmap = usingBitmap;
-    }
-
-    public String getComment() {
+    public SQLExpr getComment() {
         return comment;
     }
 
-    public void setComment(String comment) {
+    public void setComment(SQLExpr comment) {
         this.comment = comment;
     }
 
@@ -72,7 +79,7 @@ public class StarRocksIndexDefinition extends SQLObjectImpl implements SQLTableE
             columnCloned.setParent(x);
             x.columns.add(columnCloned);
         }
-        x.usingBitmap = usingBitmap;
+        x.indexType = indexType;
         x.comment = comment;
         return x;
     }

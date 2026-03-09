@@ -18,6 +18,7 @@ package com.alibaba.druid.sql.dialect.blink.vsitor;
 import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
 import com.alibaba.druid.sql.ast.statement.SQLTableElement;
+import com.alibaba.druid.sql.dialect.blink.Blink;
 import com.alibaba.druid.sql.dialect.blink.ast.BlinkCreateTableStatement;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 
@@ -25,7 +26,7 @@ import java.util.List;
 
 public class BlinkOutputVisitor extends SQLASTOutputVisitor implements BlinkVisitor {
     public BlinkOutputVisitor(StringBuilder appender) {
-        super(appender);
+        super(appender, DbType.blink, Blink.DIALECT);
     }
 
     public BlinkOutputVisitor(StringBuilder appender, DbType dbType) {
@@ -33,7 +34,7 @@ public class BlinkOutputVisitor extends SQLASTOutputVisitor implements BlinkVisi
     }
 
     public BlinkOutputVisitor(StringBuilder appender, boolean parameterized) {
-        super(appender, parameterized);
+        super(appender, DbType.blink, parameterized);
     }
 
     @Override

@@ -1,19 +1,30 @@
 package com.alibaba.druid.sql.dialect.presto.parser;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.parser.DialectFeature;
 import com.alibaba.druid.sql.parser.Keywords;
 import com.alibaba.druid.sql.parser.Lexer;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
 import com.alibaba.druid.sql.parser.Token;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PrestoLexer extends Lexer {
-    public static final Keywords DEFAULT_PHOENIX_KEYWORDS;
+import static com.alibaba.druid.sql.parser.DialectFeature.ParserFeature.AsDatabase;
+import static com.alibaba.druid.sql.parser.DialectFeature.ParserFeature.SQLDateExpr;
 
+public class PrestoLexer extends Lexer {
+    static final Keywords PRESTO_KEYWORDS;
+    static final DialectFeature PRESTO_FEATURE = new DialectFeature(
+            Arrays.asList(
+                    SQLDateExpr,
+                    AsDatabase
+            ),
+            null
+    );
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
@@ -29,20 +40,29 @@ public class PrestoLexer extends Lexer {
         map.put("USING", Token.USING);
         map.put("MATCHED", Token.MATCHED);
         map.put("UPSERT", Token.UPSERT);
-        map.put("ARRAY", Token.ARRAY);
 
-        DEFAULT_PHOENIX_KEYWORDS = new Keywords(map);
+        map.put("IF", Token.IF);
+
+        PRESTO_KEYWORDS = new Keywords(map);
     }
 
-    {
-        dbType = DbType.presto;
+    @Override
+    protected Keywords loadKeywords() {
+        return PRESTO_KEYWORDS;
     }
 
-    public PrestoLexer(String input, SQLParserFeature... features) {
-        super(input);
-        super.keywords = DEFAULT_PHOENIX_KEYWORDS;
+    public PrestoLexer(String input, DbType dbType, SQLParserFeature... features) {
+        super(input, dbType);
         for (SQLParserFeature feature : features) {
             config(feature, true);
         }
+    }
+
+    public PrestoLexer(String input, SQLParserFeature... features) {
+        this(input, DbType.presto, features);
+    }
+    @Override
+    protected void initDialectFeature() {
+        this.dialectFeature = PRESTO_FEATURE;
     }
 }

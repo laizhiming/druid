@@ -124,17 +124,14 @@ public class MySqlSelectTest_173 extends MysqlTest {
             + "\tAND (t_w_secyear.dyear = (2001 + 1))\n"
             + "\tAND (t_s_firstyear.year_total > 0)\n"
             + "\tAND (t_w_firstyear.year_total > 0)\n"
-            + "\tAND ((CASE \n"
+            + "\tAND ((CASE\n"
             + "\t\tWHEN (t_w_firstyear.year_total > 0) THEN (t_w_secyear.year_total / t_w_firstyear.year_total)\n"
             + "\t\tELSE DECIMAL '0.0'\n"
-            + "\tEND) > (CASE \n"
+            + "\tEND) > (CASE\n"
             + "\t\tWHEN (t_s_firstyear.year_total > 0) THEN (t_s_secyear.year_total / t_s_firstyear.year_total)\n"
             + "\t\tELSE DECIMAL '0.0'\n"
             + "\tEND))\n"
             + "ORDER BY t_s_secyear.customer_id ASC, t_s_secyear.customer_first_name ASC, t_s_secyear.customer_last_name ASC, t_s_secyear.customer_preferred_cust_flag ASC\n"
             + "LIMIT 100", stmt.toString());
-
-
     }
-
 }

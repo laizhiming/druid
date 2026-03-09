@@ -1,3 +1,1784 @@
+select timestamp_sub(a, interval -(2*24) hour) from b
+--------------------
+SELECT timestamp_sub(a, INTERVAL -(2 * 24) HOUR)
+FROM b
+------------------------------------------------------------------------------------------------------------------------
+    select
+      outlet_id,
+      classification,
+      if(
+        products = 'GO-FOOD'
+        and status = 'active',
+        true,
+        false
+      ) as goresto_flag
+    from
+      (
+        select
+          o.body.merchant_id as outlet_id,
+          body.after.entity.classification as classification,
+          p.type as products,
+          p.status as status
+        from
+          `data-gojek-id-raw-internal.mainstream.gomerchant_onboarding_event_log_mid` as o,
+          unnest (body.after.products) as p
+        where
+          o.event_timestamp >= timestamp_sub(current_timestamp, interval 3 day)
+          and body.merchant_id IS NOT NULL
+        qualify
+          row_number() over (
+            partition by
+              o.body.merchant_id
+            order by
+              event_timestamp desc
+          ) = 1
+      )
+    union distinct
+    select
+      merchant_platform_outlet_id as outlet_id,
+      classification_name as classification,
+      goresto_flag
+    from
+      `data-gojek-id-mart.gofood.detail_restaurant_profile_reference`
+--------------------
+SELECT outlet_id, classification
+	, if(products = 'GO-FOOD'
+		AND status = 'active', true, false) AS goresto_flag
+FROM (
+	SELECT o.body.merchant_id AS outlet_id, body.after.entity.classification AS classification, p.type AS products, p.status AS status
+	FROM `data-gojek-id-raw-internal`.mainstream.gomerchant_onboarding_event_log_mid o, UNNEST(body.after.products) AS p
+	WHERE o.event_timestamp >= timestamp_sub(current_timestamp, INTERVAL 3 DAY)
+		AND body.merchant_id IS NOT NULL
+	QUALIFY row_number() OVER (PARTITION BY o.body.merchant_id ORDER BY event_timestamp DESC) = 1
+)
+UNION DISTINCT
+SELECT merchant_platform_outlet_id AS outlet_id, classification_name AS classification, goresto_flag
+FROM `data-gojek-id-mart`.gofood.detail_restaurant_profile_reference
+------------------------------------------------------------------------------------------------------------------------
+SELECT *
+FROM (
+    SELECT a
+    FROM b
+    UNION ALL
+    SELECT a
+    FROM d
+)
+PIVOT (
+  SUM(a)
+  FOR a in (
+    '1'
+  )
+)
+ORDER BY a
+--------------------
+SELECT *
+FROM (
+	SELECT a
+	FROM b
+	UNION ALL
+	SELECT a
+	FROM d
+)
+PIVOT (SUM(a) FOR a IN ('1'))
+ORDER BY a
+------------------------------------------------------------------------------------------------------------------------
+select * from a unpivot(ct for type in ('1'))
+--------------------
+SELECT *
+FROM a
+UNPIVOT (ct FOR type IN ('1'))
+------------------------------------------------------------------------------------------------------------------------
+select timestamp_add(a, interval 1 millisecond) from b
+--------------------
+SELECT timestamp_add(a, INTERVAL 1 MILLISECOND)
+FROM b
+------------------------------------------------------------------------------------------------------------------------
+merge into a as target using b as source on a.id = b.id when not matched then insert row
+--------------------
+MERGE INTO a target
+USING b source ON a.id = b.id
+WHEN NOT MATCHED THEN INSERT ROW
+------------------------------------------------------------------------------------------------------------------------
+SELECT * EXCEPT (predicted_label),
+      predicted_label AS predicted_label1
+FROM
+  ML.PREDICT(MODEL `mydataset.mymodel1`,
+    TABLE `mydataset.mytable`)
+--------------------
+SELECT * EXCEPT(predicted_label), predicted_label AS predicted_label1
+FROM ML.PREDICT(MODEL mydataset.mymodel1, TABLE mydataset.mytable)
+------------------------------------------------------------------------------------------------------------------------
+ SELECT category, weight
+FROM
+  UNNEST((
+    SELECT
+      category_weights
+    FROM
+      ML.WEIGHTS(MODEL `mydataset.mymodel`)
+    WHERE
+      processed_input = 'input_col'))
+--------------------
+SELECT category, weight
+FROM UNNEST((
+		SELECT category_weights
+		FROM ML.WEIGHTS(MODEL mydataset.mymodel)
+		WHERE processed_input = 'input_col'
+	))
+------------------------------------------------------------------------------------------------------------------------
+ SELECT 1 from a-b-c.t join a-b-c.t1
+--------------------
+SELECT 1
+FROM `a-b-c`.t
+	JOIN `a-b-c`.t1
+------------------------------------------------------------------------------------------------------------------------
+  SELECT
+    STRUCT(
+      body.acquirer,
+      body.acquirer_transaction_id,
+      body.akulaku_order_id,
+      body.bank,
+      body.bank_response_code,
+      body.batch_number,
+      body.card_type,
+      body.channel,
+      STRUCT(
+        body.g.g_transaction_id,
+        body.g.payment_option_type,
+        body.g.source,
+        body.g.payment_details
+      ) AS g,
+      body.installment_term,
+      body.is_reversal,
+      body.issuer,
+      body.issuer_transaction_id,
+    )
+from t1
+--------------------
+SELECT STRUCT(
+		body.acquirer,
+		body.acquirer_transaction_id,
+		body.akulaku_order_id,
+		body.bank,
+		body.bank_response_code,
+		body.batch_number,
+		body.card_type,
+		body.channel,
+		STRUCT(body.g.g_transaction_id, body.g.payment_option_type, body.g.source, body.g.payment_details) AS g,
+		body.installment_term,
+		body.is_reversal,
+		body.issuer,
+		body.issuer_transaction_id
+	)
+FROM t1
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE t1
+(
+  p STRUCT<serviceName STRING, methodName STRING, resourceName STRING, sl STRUCT<currentLocations ARRAY<STRING>, ol ARRAY<STRING>>, nr INT64, status STRUCT<code INT64, message STRING, details_google_protobuf_struct ARRAY<STRUCT<zs STRUCT<zoneresource STRUCT<resourcetype STRING, scope STRUCT<scopename STRING, scopetype STRING>, resourcename STRING, project STRUCT<cd STRING>>, details STRING>>>, details_google_rpc_errorinfo ARRAY<STRUCT<reason STRING, domain STRING, metadata ARRAY<STRUCT<key STRING, value STRING>>>>>, authenticationInfo STRUCT<principalEmail STRING, authoritySelector STRING, serviceAccountKeyName STRING, serviceAccountDelegationInfo ARRAY<STRUCT<principalSubject STRING, firstPartyPrincipal STRUCT<principalEmail STRING>>>, principalSubject STRING, serviceDelegationHistory STRUCT<originalPrincipal STRING, serviceMetadata ARRAY<STRUCT<principalSubject STRING, serviceDomain STRING>>>>, authorizationInfo ARRAY<STRUCT<resource STRING, permission STRING, granted BOOL, resourceAttributes STRUCT<service STRING, name STRING, type STRING, labels ARRAY<STRUCT<key STRING, value STRING>>, uid STRING, annotations ARRAY<STRUCT<key STRING, value STRING>>, displayName STRING, createTime TIMESTAMP, updateTime TIMESTAMP, deleteTime TIMESTAMP, etag STRING, location STRING>, permissionType STRING>>, requestMetadata STRUCT<callerIp STRING, callerSuppliedUserAgent STRING, callerNetwork STRING, requestAttributes STRUCT<id STRING, method STRING, headers ARRAY<STRUCT<key STRING, value STRING>>, path STRING, host STRING, scheme STRING, query STRING, time TIMESTAMP, size INT64, protocol STRING, reason STRING, auth STRUCT<principal STRING, audiences ARRAY<STRING>, presenter STRING, accessLevels ARRAY<STRING>, credentialId STRING>>, destinationAttributes STRUCT<ip STRING, port INT64, labels ARRAY<STRUCT<key STRING, value STRING>>, principal STRING, regionCode STRING>>, requestJson STRING, metadataJson STRING, servicedata_v1_bigquery STRUCT<tableInsertRequest STRUCT<resource STRUCT<tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, schemaJson STRING, view STRUCT<query STRING>, expireTime TIMESTAMP, createTime TIMESTAMP, truncateTime TIMESTAMP, updateTime TIMESTAMP, encryption STRUCT<kmsKeyName STRING>>>, tableUpdateRequest STRUCT<resource STRUCT<tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, schemaJson STRING, view STRUCT<query STRING>, expireTime TIMESTAMP, createTime TIMESTAMP, truncateTime TIMESTAMP, updateTime TIMESTAMP, encryption STRUCT<kmsKeyName STRING>>>, datasetListRequest STRUCT<listAll BOOL>, datasetInsertRequest STRUCT<resource STRUCT<datasetName STRUCT<projectId STRING, datasetId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, createTime TIMESTAMP, updateTime TIMESTAMP, acl STRUCT<entries ARRAY<STRUCT<role STRING, groupEmail STRING, userEmail STRING, domain STRING, specialGroup STRING, viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>>>>, defaultTableExpireDuration FLOAT64>>, datasetUpdateRequest STRUCT<resource STRUCT<datasetName STRUCT<projectId STRING, datasetId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, createTime TIMESTAMP, updateTime TIMESTAMP, acl STRUCT<entries ARRAY<STRUCT<role STRING, groupEmail STRING, userEmail STRING, domain STRING, specialGroup STRING, viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>>>>, defaultTableExpireDuration FLOAT64>>, jobInsertRequest STRUCT<resource STRUCT<jobName STRUCT<projectId STRING, jobId STRING, location STRING>, jobConfiguration STRUCT<query STRUCT<query STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, defaultDataset STRUCT<projectId STRING, datasetId STRING>, tableDefinitions ARRAY<STRUCT<name STRING, sourceUris ARRAY<STRING>>>, queryPriority STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>, statementType STRING>, load STRUCT<sourceUris ARRAY<STRING>, schemaJson STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, `extract` STRUCT<destinationUris ARRAY<STRING>, sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, tableCopy STRUCT<sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, dryRun BOOL, labels ARRAY<STRUCT<key STRING, value STRING>>>, jobStatus STRUCT<state STRING, error STRUCT<code INT64, message STRING>, additionalErrors ARRAY<STRUCT<code INT64, message STRING>>>, jobStatistics STRUCT<createTime TIMESTAMP, startTime TIMESTAMP, endTime TIMESTAMP, totalProcessedBytes INT64, totalBilledBytes INT64, billingTier INT64, totalSlotMs INT64, reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>, referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalTablesProcessed INT64, referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalViewsProcessed INT64, queryOutputRowCount INT64, totalLoadOutputBytes INT64>>>, jobQueryRequest STRUCT<query STRING, maxResults INT64, defaultDataset STRUCT<projectId STRING, datasetId STRING>, projectId STRING, dryRun BOOL>, jobGetQueryResultsRequest STRUCT<maxResults INT64, startRow INT64>, tableDataListRequest STRUCT<startRow INT64, maxResults INT64>, setIamPolicyRequest STRUCT<resource STRING, policy STRUCT<version INT64, bindings ARRAY<STRUCT<role STRING, members ARRAY<STRING>, condition STRUCT<expression STRING, title STRING, description STRING, location STRING>>>, auditConfigs ARRAY<STRUCT<service STRING, auditLogConfigs ARRAY<STRUCT<logType STRING, exemptedMembers ARRAY<STRING>>>>>, etag STRING>, updateMask STRUCT<paths ARRAY<STRING>>>, tableInsertResponse STRUCT<resource STRUCT<tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, schemaJson STRING, view STRUCT<query STRING>, expireTime TIMESTAMP, createTime TIMESTAMP, truncateTime TIMESTAMP, updateTime TIMESTAMP, encryption STRUCT<kmsKeyName STRING>>>, tableUpdateResponse STRUCT<resource STRUCT<tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, schemaJson STRING, view STRUCT<query STRING>, expireTime TIMESTAMP, createTime TIMESTAMP, truncateTime TIMESTAMP, updateTime TIMESTAMP, encryption STRUCT<kmsKeyName STRING>>>, datasetInsertResponse STRUCT<resource STRUCT<datasetName STRUCT<projectId STRING, datasetId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, createTime TIMESTAMP, updateTime TIMESTAMP, acl STRUCT<entries ARRAY<STRUCT<role STRING, groupEmail STRING, userEmail STRING, domain STRING, specialGroup STRING, viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>>>>, defaultTableExpireDuration FLOAT64>>, datasetUpdateResponse STRUCT<resource STRUCT<datasetName STRUCT<projectId STRING, datasetId STRING>, info STRUCT<friendlyName STRING, description STRING, labels ARRAY<STRUCT<key STRING, value STRING>>>, createTime TIMESTAMP, updateTime TIMESTAMP, acl STRUCT<entries ARRAY<STRUCT<role STRING, groupEmail STRING, userEmail STRING, domain STRING, specialGroup STRING, viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>>>>, defaultTableExpireDuration FLOAT64>>, jobInsertResponse STRUCT<resource STRUCT<jobName STRUCT<projectId STRING, jobId STRING, location STRING>, jobConfiguration STRUCT<query STRUCT<query STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, defaultDataset STRUCT<projectId STRING, datasetId STRING>, tableDefinitions ARRAY<STRUCT<name STRING, sourceUris ARRAY<STRING>>>, queryPriority STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>, statementType STRING>, load STRUCT<sourceUris ARRAY<STRING>, schemaJson STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, `extract` STRUCT<destinationUris ARRAY<STRING>, sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, tableCopy STRUCT<sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, dryRun BOOL, labels ARRAY<STRUCT<key STRING, value STRING>>>, jobStatus STRUCT<state STRING, error STRUCT<code INT64, message STRING>, additionalErrors ARRAY<STRUCT<code INT64, message STRING>>>, jobStatistics STRUCT<createTime TIMESTAMP, startTime TIMESTAMP, endTime TIMESTAMP, totalProcessedBytes INT64, totalBilledBytes INT64, billingTier INT64, totalSlotMs INT64, reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>, referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalTablesProcessed INT64, referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalViewsProcessed INT64, queryOutputRowCount INT64, totalLoadOutputBytes INT64>>>, jobQueryResponse STRUCT<totalResults INT64, job STRUCT<jobName STRUCT<projectId STRING, jobId STRING, location STRING>, jobConfiguration STRUCT<query STRUCT<query STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, defaultDataset STRUCT<projectId STRING, datasetId STRING>, tableDefinitions ARRAY<STRUCT<name STRING, sourceUris ARRAY<STRING>>>, queryPriority STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>, statementType STRING>, load STRUCT<sourceUris ARRAY<STRING>, schemaJson STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, `extract` STRUCT<destinationUris ARRAY<STRING>, sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, tableCopy STRUCT<sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, dryRun BOOL, labels ARRAY<STRUCT<key STRING, value STRING>>>, jobStatus STRUCT<state STRING, error STRUCT<code INT64, message STRING>, additionalErrors ARRAY<STRUCT<code INT64, message STRING>>>, jobStatistics STRUCT<createTime TIMESTAMP, startTime TIMESTAMP, endTime TIMESTAMP, totalProcessedBytes INT64, totalBilledBytes INT64, billingTier INT64, totalSlotMs INT64, reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>, referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalTablesProcessed INT64, referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalViewsProcessed INT64, queryOutputRowCount INT64, totalLoadOutputBytes INT64>>>, jobGetQueryResultsResponse STRUCT<totalResults INT64, job STRUCT<jobName STRUCT<projectId STRING, jobId STRING, location STRING>, jobConfiguration STRUCT<query STRUCT<query STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, defaultDataset STRUCT<projectId STRING, datasetId STRING>, tableDefinitions ARRAY<STRUCT<name STRING, sourceUris ARRAY<STRING>>>, queryPriority STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>, statementType STRING>, load STRUCT<sourceUris ARRAY<STRING>, schemaJson STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, `extract` STRUCT<destinationUris ARRAY<STRING>, sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, tableCopy STRUCT<sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, dryRun BOOL, labels ARRAY<STRUCT<key STRING, value STRING>>>, jobStatus STRUCT<state STRING, error STRUCT<code INT64, message STRING>, additionalErrors ARRAY<STRUCT<code INT64, message STRING>>>, jobStatistics STRUCT<createTime TIMESTAMP, startTime TIMESTAMP, endTime TIMESTAMP, totalProcessedBytes INT64, totalBilledBytes INT64, billingTier INT64, totalSlotMs INT64, reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>, referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalTablesProcessed INT64, referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalViewsProcessed INT64, queryOutputRowCount INT64, totalLoadOutputBytes INT64>>>, jobQueryDoneResponse STRUCT<job STRUCT<jobName STRUCT<projectId STRING, jobId STRING, location STRING>, jobConfiguration STRUCT<query STRUCT<query STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, defaultDataset STRUCT<projectId STRING, datasetId STRING>, tableDefinitions ARRAY<STRUCT<name STRING, sourceUris ARRAY<STRING>>>, queryPriority STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>, statementType STRING>, load STRUCT<sourceUris ARRAY<STRING>, schemaJson STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, `extract` STRUCT<destinationUris ARRAY<STRING>, sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, tableCopy STRUCT<sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, dryRun BOOL, labels ARRAY<STRUCT<key STRING, value STRING>>>, jobStatus STRUCT<state STRING, error STRUCT<code INT64, message STRING>, additionalErrors ARRAY<STRUCT<code INT64, message STRING>>>, jobStatistics STRUCT<createTime TIMESTAMP, startTime TIMESTAMP, endTime TIMESTAMP, totalProcessedBytes INT64, totalBilledBytes INT64, billingTier INT64, totalSlotMs INT64, reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>, referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalTablesProcessed INT64, referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalViewsProcessed INT64, queryOutputRowCount INT64, totalLoadOutputBytes INT64>>>, policyResponse STRUCT<version INT64, bindings ARRAY<STRUCT<role STRING, members ARRAY<STRING>, condition STRUCT<expression STRING, title STRING, description STRING, location STRING>>>, auditConfigs ARRAY<STRUCT<service STRING, auditLogConfigs ARRAY<STRUCT<logType STRING, exemptedMembers ARRAY<STRING>>>>>, etag STRING>, jobCompletedEvent STRUCT<eventName STRING, job STRUCT<jobName STRUCT<projectId STRING, jobId STRING, location STRING>, jobConfiguration STRUCT<query STRUCT<query STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, defaultDataset STRUCT<projectId STRING, datasetId STRING>, tableDefinitions ARRAY<STRUCT<name STRING, sourceUris ARRAY<STRING>>>, queryPriority STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>, statementType STRING>, load STRUCT<sourceUris ARRAY<STRING>, schemaJson STRING, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, `extract` STRUCT<destinationUris ARRAY<STRING>, sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, tableCopy STRUCT<sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>, createDisposition STRING, writeDisposition STRING, destinationTableEncryption STRUCT<kmsKeyName STRING>>, dryRun BOOL, labels ARRAY<STRUCT<key STRING, value STRING>>>, jobStatus STRUCT<state STRING, error STRUCT<code INT64, message STRING>, additionalErrors ARRAY<STRUCT<code INT64, message STRING>>>, jobStatistics STRUCT<createTime TIMESTAMP, startTime TIMESTAMP, endTime TIMESTAMP, totalProcessedBytes INT64, totalBilledBytes INT64, billingTier INT64, totalSlotMs INT64, reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>, referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalTablesProcessed INT64, referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>, totalViewsProcessed INT64, queryOutputRowCount INT64, totalLoadOutputBytes INT64>>>, tableDataReadEvents ARRAY<STRUCT<tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>, referencedFields ARRAY<STRING>>>>, responseJson STRING, servicedata_v1_iam STRUCT<policyUpdate STRUCT<version INT64, bindings ARRAY<STRUCT<role STRING, members ARRAY<STRING>, condition STRUCT<expression STRING, title STRING, description STRING, location STRING>>>, auditConfigs ARRAY<STRUCT<service STRING, auditLogConfigs ARRAY<STRUCT<logType STRING, exemptedMembers ARRAY<STRING>>>>>, etag STRING>, policyDelta STRUCT<bindingDeltas ARRAY<STRUCT<action STRING, role STRING, member STRING, condition STRUCT<expression STRING, title STRING, description STRING, location STRING>>>, auditConfigDeltas ARRAY<STRUCT<action STRING, service STRING, exemptedMember STRING, logType STRING>>>>, servicedata_v1_iam_admin STRUCT<permissionDelta STRUCT<addedPermissions ARRAY<STRING>, removedPermissions ARRAY<STRING>>>, policyViolationInfo STRUCT<orgPolicyViolationInfo STRUCT<resourceType STRING, resourceTags ARRAY<STRUCT<key STRING, value STRING>>, violationInfo ARRAY<STRUCT<constraint STRING, errorMessage STRING, checkedValue STRING, policyType STRING>>>>, servicedata_v1beta4_appengine STRUCT<setIamPolicy STRUCT<request STRUCT<resource STRING, policy STRUCT<version INT64, bindings ARRAY<STRUCT<role STRING, members ARRAY<STRING>, condition STRUCT<expression STRING, title STRING, description STRING, location STRING>>>, auditConfigs ARRAY<STRUCT<service STRING, auditLogConfigs ARRAY<STRUCT<logType STRING, exemptedMembers ARRAY<STRING>>>>>, etag STRING>, updateMask STRUCT<paths ARRAY<STRING>>>>>, servicedata_v1_appengine STRUCT<updateService STRUCT<request STRUCT<name STRING, service STRUCT<name STRING, id STRING, split STRUCT<shardBy STRING, allocations ARRAY<STRUCT<key STRING, value FLOAT64>>>, labels ARRAY<STRUCT<key STRING, value STRING>>, networkSettings STRUCT<ingressTrafficAllowed STRING>>, updateMask STRUCT<paths ARRAY<STRING>>, migrateTraffic BOOL>>, createVersion STRUCT<request STRUCT<parent STRING, version STRUCT<name STRING, id STRING, automaticScaling STRUCT<cpuUtilization STRUCT<targetUtilization FLOAT64>, maxConcurrentRequests INT64, maxIdleInstances INT64, maxTotalInstances INT64, minIdleInstances INT64, minTotalInstances INT64, requestUtilization STRUCT<targetRequestCountPerSecond INT64, targetConcurrentRequests INT64>, diskUtilization STRUCT<targetWriteBytesPerSecond INT64, targetWriteOpsPerSecond INT64, targetReadBytesPerSecond INT64, targetReadOpsPerSecond INT64>, networkUtilization STRUCT<targetSentBytesPerSecond INT64, targetSentPacketsPerSecond INT64, targetReceivedBytesPerSecond INT64, targetReceivedPacketsPerSecond INT64>, standardSchedulerSettings STRUCT<targetCpuUtilization FLOAT64, targetThroughputUtilization FLOAT64, minInstances INT64, maxInstances INT64>>, basicScaling STRUCT<maxInstances INT64>, manualScaling STRUCT<instances INT64>, inboundServices ARRAY<STRING>, instanceClass STRING, network STRUCT<forwardedPorts ARRAY<STRING>, instanceTag STRING, name STRING, subnetworkName STRING, sessionAffinity BOOL>, zones ARRAY<STRING>, resources STRUCT<cpu FLOAT64, diskGb FLOAT64, memoryGb FLOAT64, volumes ARRAY<STRUCT<name STRING, volumeType STRING, sizeGb FLOAT64>>, kmsKeyReference STRING>, runtime STRING, runtimeChannel STRING, threadsafe BOOL, vm BOOL, appEngineApis BOOL, betaSettings ARRAY<STRUCT<key STRING, value STRING>>, env STRING, servingStatus STRING, createdBy STRING, createTime TIMESTAMP, diskUsageBytes INT64, runtimeApiVersion STRING, runtimeMainExecutablePath STRING, serviceAccount STRING, handlers ARRAY<STRUCT<urlRegex STRING, staticFiles STRUCT<path STRING, uploadPathRegex STRING, httpHeaders ARRAY<STRUCT<key STRING, value STRING>>, mimeType STRING, requireMatchingFile BOOL, applicationReadable BOOL>, script STRUCT<scriptPath STRING>, apiEndpoint STRUCT<scriptPath STRING>, securityLevel STRING, login STRING, authFailAction STRING, redirectHttpResponseCode STRING>>, errorHandlers ARRAY<STRUCT<errorCode STRING, staticFile STRING, mimeType STRING>>, libraries ARRAY<STRUCT<name STRING, version STRING>>, apiConfig STRUCT<authFailAction STRING, login STRING, script STRING, securityLevel STRING, url STRING>, envVariables ARRAY<STRUCT<key STRING, value STRING>>, buildEnvVariables ARRAY<STRUCT<key STRING, value STRING>>, h STRUCT<disableHealthCheck BOOL, host STRING, ht INT64, unhealthyThreshold INT64, restartThreshold INT64>, readinessCheck STRUCT<path STRING, host STRING, failureThreshold INT64, successThreshold INT64>, livenessCheck STRUCT<path STRING, host STRING, failureThreshold INT64, successThreshold INT64>, nobuildFilesRegex STRING, deployment STRUCT<files ARRAY<STRUCT<key STRING, value STRUCT<sourceUrl STRING, sha1Sum STRING, mimeType STRING>>>, container STRUCT<image STRING>, zip STRUCT<sourceUrl STRING, filesCount INT64>, cb STRUCT<appYamlPath STRING>>, versionUrl STRING, endpointsApiService STRUCT<name STRING, configId STRING>, entrypoint STRUCT<shell STRING>, vpcAccessConnector STRUCT<name STRING, es STRING>>>>>, ro STRING>,
+  s STRUCT<file STRING, line BIGINT, function STRING>
+);
+--------------------
+CREATE TABLE t1 (
+	p STRUCT<
+		serviceName STRING,
+		methodName STRING,
+		resourceName STRING,
+		sl STRUCT<
+			currentLocations ARRAY<STRING>,
+			ol ARRAY<STRING>
+		>,
+		nr INT64,
+		status STRUCT<
+			code INT64,
+			message STRING,
+			details_google_protobuf_struct ARRAY<STRUCT<
+				zs STRUCT<
+					zoneresource STRUCT<
+						resourcetype STRING,
+						scope STRUCT<scopename STRING, scopetype STRING>,
+						resourcename STRING,
+						project STRUCT<cd STRING>
+					>,
+					details STRING
+				>
+			>>,
+			details_google_rpc_errorinfo ARRAY<STRUCT<
+				reason STRING,
+				domain STRING,
+				metadata ARRAY<STRUCT<key STRING, value STRING>>
+			>>
+		>,
+		authenticationInfo STRUCT<
+			principalEmail STRING,
+			authoritySelector STRING,
+			serviceAccountKeyName STRING,
+			serviceAccountDelegationInfo ARRAY<STRUCT<
+				principalSubject STRING,
+				firstPartyPrincipal STRUCT<principalEmail STRING>
+			>>,
+			principalSubject STRING,
+			serviceDelegationHistory STRUCT<
+				originalPrincipal STRING,
+				serviceMetadata ARRAY<STRUCT<principalSubject STRING, serviceDomain STRING>>
+			>
+		>,
+		authorizationInfo ARRAY<STRUCT<
+			resource STRING,
+			permission STRING,
+			granted BOOL,
+			resourceAttributes STRUCT<
+				service STRING,
+				name STRING,
+				type STRING,
+				labels ARRAY<STRUCT<key STRING, value STRING>>,
+				uid STRING,
+				annotations ARRAY<STRUCT<key STRING, value STRING>>,
+				displayName STRING,
+				createTime TIMESTAMP,
+				updateTime TIMESTAMP,
+				deleteTime TIMESTAMP,
+				etag STRING,
+				location STRING
+			>,
+			permissionType STRING
+		>>,
+		requestMetadata STRUCT<
+			callerIp STRING,
+			callerSuppliedUserAgent STRING,
+			callerNetwork STRING,
+			requestAttributes STRUCT<
+				id STRING,
+				method STRING,
+				headers ARRAY<STRUCT<key STRING, value STRING>>,
+				path STRING,
+				host STRING,
+				scheme STRING,
+				query STRING,
+				time TIMESTAMP,
+				size INT64,
+				protocol STRING,
+				reason STRING,
+				auth STRUCT<
+					principal STRING,
+					audiences ARRAY<STRING>,
+					presenter STRING,
+					accessLevels ARRAY<STRING>,
+					credentialId STRING
+				>
+			>,
+			destinationAttributes STRUCT<
+				ip STRING,
+				port INT64,
+				labels ARRAY<STRUCT<key STRING, value STRING>>,
+				principal STRING,
+				regionCode STRING
+			>
+		>,
+		requestJson STRING,
+		metadataJson STRING,
+		servicedata_v1_bigquery STRUCT<
+			tableInsertRequest STRUCT<
+				resource STRUCT<
+					tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					schemaJson STRING,
+					view STRUCT<query STRING>,
+					expireTime TIMESTAMP,
+					createTime TIMESTAMP,
+					truncateTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					encryption STRUCT<kmsKeyName STRING>
+				>
+			>,
+			tableUpdateRequest STRUCT<
+				resource STRUCT<
+					tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					schemaJson STRING,
+					view STRUCT<query STRING>,
+					expireTime TIMESTAMP,
+					createTime TIMESTAMP,
+					truncateTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					encryption STRUCT<kmsKeyName STRING>
+				>
+			>,
+			datasetListRequest STRUCT<listAll BOOL>,
+			datasetInsertRequest STRUCT<
+				resource STRUCT<
+					datasetName STRUCT<projectId STRING, datasetId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					createTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					acl STRUCT<
+						entries ARRAY<STRUCT<
+							role STRING,
+							groupEmail STRING,
+							userEmail STRING,
+							domain STRING,
+							specialGroup STRING,
+							viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>>
+					>,
+					defaultTableExpireDuration FLOAT64
+				>
+			>,
+			datasetUpdateRequest STRUCT<
+				resource STRUCT<
+					datasetName STRUCT<projectId STRING, datasetId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					createTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					acl STRUCT<
+						entries ARRAY<STRUCT<
+							role STRING,
+							groupEmail STRING,
+							userEmail STRING,
+							domain STRING,
+							specialGroup STRING,
+							viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>>
+					>,
+					defaultTableExpireDuration FLOAT64
+				>
+			>,
+			jobInsertRequest STRUCT<
+				resource STRUCT<
+					jobName STRUCT<projectId STRING, jobId STRING, location STRING>,
+					jobConfiguration STRUCT<
+						query STRUCT<
+							query STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+							tableDefinitions ARRAY<STRUCT<
+								name STRING,
+								sourceUris ARRAY<STRING>
+							>>,
+							queryPriority STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>,
+							statementType STRING
+						>,
+						load STRUCT<
+							sourceUris ARRAY<STRING>,
+							schemaJson STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						`extract` STRUCT<
+							destinationUris ARRAY<STRING>,
+							sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>,
+						tableCopy STRUCT<
+							sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						dryRun BOOL,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					jobStatus STRUCT<
+						state STRING,
+						error STRUCT<code INT64, message STRING>,
+						additionalErrors ARRAY<STRUCT<code INT64, message STRING>>
+					>,
+					jobStatistics STRUCT<
+						createTime TIMESTAMP,
+						startTime TIMESTAMP,
+						endTime TIMESTAMP,
+						totalProcessedBytes INT64,
+						totalBilledBytes INT64,
+						billingTier INT64,
+						totalSlotMs INT64,
+						reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>,
+						referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalTablesProcessed INT64,
+						referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalViewsProcessed INT64,
+						queryOutputRowCount INT64,
+						totalLoadOutputBytes INT64
+					>
+				>
+			>,
+			jobQueryRequest STRUCT<
+				query STRING,
+				maxResults INT64,
+				defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+				projectId STRING,
+				dryRun BOOL
+			>,
+			jobGetQueryResultsRequest STRUCT<maxResults INT64, startRow INT64>,
+			tableDataListRequest STRUCT<startRow INT64, maxResults INT64>,
+			setIamPolicyRequest STRUCT<
+				resource STRING,
+				policy STRUCT<
+					version INT64,
+					bindings ARRAY<STRUCT<
+						role STRING,
+						members ARRAY<STRING>,
+						condition STRUCT<expression STRING, title STRING, description STRING, location STRING>
+					>>,
+					auditConfigs ARRAY<STRUCT<
+						service STRING,
+						auditLogConfigs ARRAY<STRUCT<
+							logType STRING,
+							exemptedMembers ARRAY<STRING>
+						>>
+					>>,
+					etag STRING
+				>,
+				updateMask STRUCT<
+					paths ARRAY<STRING>
+				>
+			>,
+			tableInsertResponse STRUCT<
+				resource STRUCT<
+					tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					schemaJson STRING,
+					view STRUCT<query STRING>,
+					expireTime TIMESTAMP,
+					createTime TIMESTAMP,
+					truncateTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					encryption STRUCT<kmsKeyName STRING>
+				>
+			>,
+			tableUpdateResponse STRUCT<
+				resource STRUCT<
+					tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					schemaJson STRING,
+					view STRUCT<query STRING>,
+					expireTime TIMESTAMP,
+					createTime TIMESTAMP,
+					truncateTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					encryption STRUCT<kmsKeyName STRING>
+				>
+			>,
+			datasetInsertResponse STRUCT<
+				resource STRUCT<
+					datasetName STRUCT<projectId STRING, datasetId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					createTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					acl STRUCT<
+						entries ARRAY<STRUCT<
+							role STRING,
+							groupEmail STRING,
+							userEmail STRING,
+							domain STRING,
+							specialGroup STRING,
+							viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>>
+					>,
+					defaultTableExpireDuration FLOAT64
+				>
+			>,
+			datasetUpdateResponse STRUCT<
+				resource STRUCT<
+					datasetName STRUCT<projectId STRING, datasetId STRING>,
+					info STRUCT<
+						friendlyName STRING,
+						description STRING,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					createTime TIMESTAMP,
+					updateTime TIMESTAMP,
+					acl STRUCT<
+						entries ARRAY<STRUCT<
+							role STRING,
+							groupEmail STRING,
+							userEmail STRING,
+							domain STRING,
+							specialGroup STRING,
+							viewName STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>>
+					>,
+					defaultTableExpireDuration FLOAT64
+				>
+			>,
+			jobInsertResponse STRUCT<
+				resource STRUCT<
+					jobName STRUCT<projectId STRING, jobId STRING, location STRING>,
+					jobConfiguration STRUCT<
+						query STRUCT<
+							query STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+							tableDefinitions ARRAY<STRUCT<
+								name STRING,
+								sourceUris ARRAY<STRING>
+							>>,
+							queryPriority STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>,
+							statementType STRING
+						>,
+						load STRUCT<
+							sourceUris ARRAY<STRING>,
+							schemaJson STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						`extract` STRUCT<
+							destinationUris ARRAY<STRING>,
+							sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>,
+						tableCopy STRUCT<
+							sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						dryRun BOOL,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					jobStatus STRUCT<
+						state STRING,
+						error STRUCT<code INT64, message STRING>,
+						additionalErrors ARRAY<STRUCT<code INT64, message STRING>>
+					>,
+					jobStatistics STRUCT<
+						createTime TIMESTAMP,
+						startTime TIMESTAMP,
+						endTime TIMESTAMP,
+						totalProcessedBytes INT64,
+						totalBilledBytes INT64,
+						billingTier INT64,
+						totalSlotMs INT64,
+						reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>,
+						referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalTablesProcessed INT64,
+						referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalViewsProcessed INT64,
+						queryOutputRowCount INT64,
+						totalLoadOutputBytes INT64
+					>
+				>
+			>,
+			jobQueryResponse STRUCT<
+				totalResults INT64,
+				job STRUCT<
+					jobName STRUCT<projectId STRING, jobId STRING, location STRING>,
+					jobConfiguration STRUCT<
+						query STRUCT<
+							query STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+							tableDefinitions ARRAY<STRUCT<
+								name STRING,
+								sourceUris ARRAY<STRING>
+							>>,
+							queryPriority STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>,
+							statementType STRING
+						>,
+						load STRUCT<
+							sourceUris ARRAY<STRING>,
+							schemaJson STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						`extract` STRUCT<
+							destinationUris ARRAY<STRING>,
+							sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>,
+						tableCopy STRUCT<
+							sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						dryRun BOOL,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					jobStatus STRUCT<
+						state STRING,
+						error STRUCT<code INT64, message STRING>,
+						additionalErrors ARRAY<STRUCT<code INT64, message STRING>>
+					>,
+					jobStatistics STRUCT<
+						createTime TIMESTAMP,
+						startTime TIMESTAMP,
+						endTime TIMESTAMP,
+						totalProcessedBytes INT64,
+						totalBilledBytes INT64,
+						billingTier INT64,
+						totalSlotMs INT64,
+						reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>,
+						referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalTablesProcessed INT64,
+						referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalViewsProcessed INT64,
+						queryOutputRowCount INT64,
+						totalLoadOutputBytes INT64
+					>
+				>
+			>,
+			jobGetQueryResultsResponse STRUCT<
+				totalResults INT64,
+				job STRUCT<
+					jobName STRUCT<projectId STRING, jobId STRING, location STRING>,
+					jobConfiguration STRUCT<
+						query STRUCT<
+							query STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+							tableDefinitions ARRAY<STRUCT<
+								name STRING,
+								sourceUris ARRAY<STRING>
+							>>,
+							queryPriority STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>,
+							statementType STRING
+						>,
+						load STRUCT<
+							sourceUris ARRAY<STRING>,
+							schemaJson STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						`extract` STRUCT<
+							destinationUris ARRAY<STRING>,
+							sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>,
+						tableCopy STRUCT<
+							sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						dryRun BOOL,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					jobStatus STRUCT<
+						state STRING,
+						error STRUCT<code INT64, message STRING>,
+						additionalErrors ARRAY<STRUCT<code INT64, message STRING>>
+					>,
+					jobStatistics STRUCT<
+						createTime TIMESTAMP,
+						startTime TIMESTAMP,
+						endTime TIMESTAMP,
+						totalProcessedBytes INT64,
+						totalBilledBytes INT64,
+						billingTier INT64,
+						totalSlotMs INT64,
+						reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>,
+						referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalTablesProcessed INT64,
+						referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalViewsProcessed INT64,
+						queryOutputRowCount INT64,
+						totalLoadOutputBytes INT64
+					>
+				>
+			>,
+			jobQueryDoneResponse STRUCT<
+				job STRUCT<
+					jobName STRUCT<projectId STRING, jobId STRING, location STRING>,
+					jobConfiguration STRUCT<
+						query STRUCT<
+							query STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+							tableDefinitions ARRAY<STRUCT<
+								name STRING,
+								sourceUris ARRAY<STRING>
+							>>,
+							queryPriority STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>,
+							statementType STRING
+						>,
+						load STRUCT<
+							sourceUris ARRAY<STRING>,
+							schemaJson STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						`extract` STRUCT<
+							destinationUris ARRAY<STRING>,
+							sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>,
+						tableCopy STRUCT<
+							sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						dryRun BOOL,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					jobStatus STRUCT<
+						state STRING,
+						error STRUCT<code INT64, message STRING>,
+						additionalErrors ARRAY<STRUCT<code INT64, message STRING>>
+					>,
+					jobStatistics STRUCT<
+						createTime TIMESTAMP,
+						startTime TIMESTAMP,
+						endTime TIMESTAMP,
+						totalProcessedBytes INT64,
+						totalBilledBytes INT64,
+						billingTier INT64,
+						totalSlotMs INT64,
+						reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>,
+						referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalTablesProcessed INT64,
+						referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalViewsProcessed INT64,
+						queryOutputRowCount INT64,
+						totalLoadOutputBytes INT64
+					>
+				>
+			>,
+			policyResponse STRUCT<
+				version INT64,
+				bindings ARRAY<STRUCT<
+					role STRING,
+					members ARRAY<STRING>,
+					condition STRUCT<expression STRING, title STRING, description STRING, location STRING>
+				>>,
+				auditConfigs ARRAY<STRUCT<
+					service STRING,
+					auditLogConfigs ARRAY<STRUCT<
+						logType STRING,
+						exemptedMembers ARRAY<STRING>
+					>>
+				>>,
+				etag STRING
+			>,
+			jobCompletedEvent STRUCT<
+				eventName STRING,
+				job STRUCT<
+					jobName STRUCT<projectId STRING, jobId STRING, location STRING>,
+					jobConfiguration STRUCT<
+						query STRUCT<
+							query STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							defaultDataset STRUCT<projectId STRING, datasetId STRING>,
+							tableDefinitions ARRAY<STRUCT<
+								name STRING,
+								sourceUris ARRAY<STRING>
+							>>,
+							queryPriority STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>,
+							statementType STRING
+						>,
+						load STRUCT<
+							sourceUris ARRAY<STRING>,
+							schemaJson STRING,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						`extract` STRUCT<
+							destinationUris ARRAY<STRING>,
+							sourceTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>
+						>,
+						tableCopy STRUCT<
+							sourceTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+							destinationTable STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+							createDisposition STRING,
+							writeDisposition STRING,
+							destinationTableEncryption STRUCT<kmsKeyName STRING>
+						>,
+						dryRun BOOL,
+						labels ARRAY<STRUCT<key STRING, value STRING>>
+					>,
+					jobStatus STRUCT<
+						state STRING,
+						error STRUCT<code INT64, message STRING>,
+						additionalErrors ARRAY<STRUCT<code INT64, message STRING>>
+					>,
+					jobStatistics STRUCT<
+						createTime TIMESTAMP,
+						startTime TIMESTAMP,
+						endTime TIMESTAMP,
+						totalProcessedBytes INT64,
+						totalBilledBytes INT64,
+						billingTier INT64,
+						totalSlotMs INT64,
+						reservationUsage ARRAY<STRUCT<name STRING, slotMs INT64>>,
+						referencedTables ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalTablesProcessed INT64,
+						referencedViews ARRAY<STRUCT<projectId STRING, datasetId STRING, tableId STRING>>,
+						totalViewsProcessed INT64,
+						queryOutputRowCount INT64,
+						totalLoadOutputBytes INT64
+					>
+				>
+			>,
+			tableDataReadEvents ARRAY<STRUCT<
+				tableName STRUCT<projectId STRING, datasetId STRING, tableId STRING>,
+				referencedFields ARRAY<STRING>
+			>>
+		>,
+		responseJson STRING,
+		servicedata_v1_iam STRUCT<
+			policyUpdate STRUCT<
+				version INT64,
+				bindings ARRAY<STRUCT<
+					role STRING,
+					members ARRAY<STRING>,
+					condition STRUCT<expression STRING, title STRING, description STRING, location STRING>
+				>>,
+				auditConfigs ARRAY<STRUCT<
+					service STRING,
+					auditLogConfigs ARRAY<STRUCT<
+						logType STRING,
+						exemptedMembers ARRAY<STRING>
+					>>
+				>>,
+				etag STRING
+			>,
+			policyDelta STRUCT<
+				bindingDeltas ARRAY<STRUCT<
+					action STRING,
+					role STRING,
+					member STRING,
+					condition STRUCT<expression STRING, title STRING, description STRING, location STRING>
+				>>,
+				auditConfigDeltas ARRAY<STRUCT<action STRING, service STRING, exemptedMember STRING, logType STRING>>
+			>
+		>,
+		servicedata_v1_iam_admin STRUCT<
+			permissionDelta STRUCT<
+				addedPermissions ARRAY<STRING>,
+				removedPermissions ARRAY<STRING>
+			>
+		>,
+		policyViolationInfo STRUCT<
+			orgPolicyViolationInfo STRUCT<
+				resourceType STRING,
+				resourceTags ARRAY<STRUCT<key STRING, value STRING>>,
+				violationInfo ARRAY<STRUCT<constraint STRING, errorMessage STRING, checkedValue STRING, policyType STRING>>
+			>
+		>,
+		servicedata_v1beta4_appengine STRUCT<
+			setIamPolicy STRUCT<
+				request STRUCT<
+					resource STRING,
+					policy STRUCT<
+						version INT64,
+						bindings ARRAY<STRUCT<
+							role STRING,
+							members ARRAY<STRING>,
+							condition STRUCT<expression STRING, title STRING, description STRING, location STRING>
+						>>,
+						auditConfigs ARRAY<STRUCT<
+							service STRING,
+							auditLogConfigs ARRAY<STRUCT<
+								logType STRING,
+								exemptedMembers ARRAY<STRING>
+							>>
+						>>,
+						etag STRING
+					>,
+					updateMask STRUCT<
+						paths ARRAY<STRING>
+					>
+				>
+			>
+		>,
+		servicedata_v1_appengine STRUCT<
+			updateService STRUCT<
+				request STRUCT<
+					name STRING,
+					service STRUCT<
+						name STRING,
+						id STRING,
+						split STRUCT<
+							shardBy STRING,
+							allocations ARRAY<STRUCT<key STRING, value FLOAT64>>
+						>,
+						labels ARRAY<STRUCT<key STRING, value STRING>>,
+						networkSettings STRUCT<ingressTrafficAllowed STRING>
+					>,
+					updateMask STRUCT<
+						paths ARRAY<STRING>
+					>,
+					migrateTraffic BOOL
+				>
+			>,
+			createVersion STRUCT<
+				request STRUCT<
+					parent STRING,
+					version STRUCT<
+						name STRING,
+						id STRING,
+						automaticScaling STRUCT<
+							cpuUtilization STRUCT<targetUtilization FLOAT64>,
+							maxConcurrentRequests INT64,
+							maxIdleInstances INT64,
+							maxTotalInstances INT64,
+							minIdleInstances INT64,
+							minTotalInstances INT64,
+							requestUtilization STRUCT<targetRequestCountPerSecond INT64, targetConcurrentRequests INT64>,
+							diskUtilization STRUCT<targetWriteBytesPerSecond INT64, targetWriteOpsPerSecond INT64, targetReadBytesPerSecond INT64, targetReadOpsPerSecond INT64>,
+							networkUtilization STRUCT<targetSentBytesPerSecond INT64, targetSentPacketsPerSecond INT64, targetReceivedBytesPerSecond INT64, targetReceivedPacketsPerSecond INT64>,
+							standardSchedulerSettings STRUCT<targetCpuUtilization FLOAT64, targetThroughputUtilization FLOAT64, minInstances INT64, maxInstances INT64>
+						>,
+						basicScaling STRUCT<maxInstances INT64>,
+						manualScaling STRUCT<instances INT64>,
+						inboundServices ARRAY<STRING>,
+						instanceClass STRING,
+						network STRUCT<
+							forwardedPorts ARRAY<STRING>,
+							instanceTag STRING,
+							name STRING,
+							subnetworkName STRING,
+							sessionAffinity BOOL
+						>,
+						zones ARRAY<STRING>,
+						resources STRUCT<
+							cpu FLOAT64,
+							diskGb FLOAT64,
+							memoryGb FLOAT64,
+							volumes ARRAY<STRUCT<name STRING, volumeType STRING, sizeGb FLOAT64>>,
+							kmsKeyReference STRING
+						>,
+						runtime STRING,
+						runtimeChannel STRING,
+						threadsafe BOOL,
+						vm BOOL,
+						appEngineApis BOOL,
+						betaSettings ARRAY<STRUCT<key STRING, value STRING>>,
+						env STRING,
+						servingStatus STRING,
+						createdBy STRING,
+						createTime TIMESTAMP,
+						diskUsageBytes INT64,
+						runtimeApiVersion STRING,
+						runtimeMainExecutablePath STRING,
+						serviceAccount STRING,
+						handlers ARRAY<STRUCT<
+							urlRegex STRING,
+							staticFiles STRUCT<
+								path STRING,
+								uploadPathRegex STRING,
+								httpHeaders ARRAY<STRUCT<key STRING, value STRING>>,
+								mimeType STRING,
+								requireMatchingFile BOOL,
+								applicationReadable BOOL
+							>,
+							script STRUCT<scriptPath STRING>,
+							apiEndpoint STRUCT<scriptPath STRING>,
+							securityLevel STRING,
+							login STRING,
+							authFailAction STRING,
+							redirectHttpResponseCode STRING
+						>>,
+						errorHandlers ARRAY<STRUCT<errorCode STRING, staticFile STRING, mimeType STRING>>,
+						libraries ARRAY<STRUCT<name STRING, version STRING>>,
+						apiConfig STRUCT<authFailAction STRING, login STRING, script STRING, securityLevel STRING, url STRING>,
+						envVariables ARRAY<STRUCT<key STRING, value STRING>>,
+						buildEnvVariables ARRAY<STRUCT<key STRING, value STRING>>,
+						h STRUCT<disableHealthCheck BOOL, host STRING, ht INT64, unhealthyThreshold INT64, restartThreshold INT64>,
+						readinessCheck STRUCT<path STRING, host STRING, failureThreshold INT64, successThreshold INT64>,
+						livenessCheck STRUCT<path STRING, host STRING, failureThreshold INT64, successThreshold INT64>,
+						nobuildFilesRegex STRING,
+						deployment STRUCT<
+							files ARRAY<STRUCT<
+								key STRING,
+								value STRUCT<sourceUrl STRING, sha1Sum STRING, mimeType STRING>
+							>>,
+							container STRUCT<image STRING>,
+							zip STRUCT<sourceUrl STRING, filesCount INT64>,
+							cb STRUCT<appYamlPath STRING>
+						>,
+						versionUrl STRING,
+						endpointsApiService STRUCT<name STRING, configId STRING>,
+						entrypoint STRUCT<shell STRING>,
+						vpcAccessConnector STRUCT<name STRING, es STRING>
+					>
+				>
+			>
+		>,
+		ro STRING
+	>,
+	s STRUCT<file STRING, line BIGINT, function STRING>
+);
+------------------------------------------------------------------------------------------------------------------------
+CREATE MODEL  m0
+OPTIONS(
+  MODEL_TYPE='ARIMA_PLUS'
+  ,TIME_SERIES_TIMESTAMP_COL='partition_date'
+  ,TIME_SERIES_DATA_COL='increment'
+  ,SEASONALITIES=['WEEKLY']
+  ) AS (
+    training_data AS (
+      SELECT partition_date
+      FROM t1
+    ),
+    custom_holiday AS (
+      SELECT DISTINCT region
+      FROM t2
+    )
+  );
+--------------------
+CREATE MODEL m0
+OPTIONS (
+	MODEL_TYPE = 'ARIMA_PLUS',
+	TIME_SERIES_TIMESTAMP_COL = 'partition_date',
+	TIME_SERIES_DATA_COL = 'increment',
+	SEASONALITIES = ['WEEKLY']
+)
+AS (
+	TRAINING_DATA AS (
+		SELECT partition_date
+		FROM t1
+	),
+	CUSTOM_HOLIDAY AS (
+		SELECT DISTINCT region
+		FROM t2
+	)
+);
+------------------------------------------------------------------------------------------------------------------------
+LOOP
+  SET x = x + 1;
+  IF x >= 10 THEN
+    LEAVE;
+  END IF;
+END LOOP;
+--------------------
+LOOP
+	SET x = x + 1;
+	IF x >= 10
+		THEN
+		LEAVE;
+	END IF;
+END LOOP;
+------------------------------------------------------------------------------------------------------------------------
+CONTINUE;
+--------------------
+CONTINUE;
+------------------------------------------------------------------------------------------------------------------------
+EXECUTE IMMEDIATE "SELECT @a * (@b + 2)" INTO y USING 1 as a, 3 as b;
+--------------------
+EXECUTE IMMEDIATE 'SELECT @a * (@b + 2)' INTO y USING 1 AS a, 3 AS b;
+------------------------------------------------------------------------------------------------------------------------
+EXECUTE IMMEDIATE "SELECT ? * (? + 2)" INTO y USING 1, 3;
+--------------------
+EXECUTE IMMEDIATE 'SELECT ? * (? + 2)' INTO y USING 1, 3;
+------------------------------------------------------------------------------------------------------------------------
+EXECUTE IMMEDIATE "DELETE FROM t1 WHERE x_audit_date = ?" USING audit_date;
+--------------------
+EXECUTE IMMEDIATE 'DELETE FROM t1 WHERE x_audit_date = ?' USING audit_date;
+------------------------------------------------------------------------------------------------------------------------
+SELECT ARRAY<STRUCT<
+          id INT64,
+          name STRING,
+          promo_id STRING,
+          quantity FLOAT64,
+          price FLOAT64
+        >>[(
+          SAFE_CAST(NULL AS INT64),
+          SAFE_CAST(NULL AS STRING),
+          SAFE_CAST(NULL AS STRING),
+          SAFE_CAST(NULL AS FLOAT64),
+          SAFE_CAST(NULL AS FLOAT64)
+        )]
+--------------------
+SELECT ARRAY<STRUCT<id INT64, name STRING, promo_id STRING, quantity FLOAT64, price FLOAT64>>[(SAFE_CAST(NULL AS INT64), SAFE_CAST(NULL AS STRING), SAFE_CAST(NULL AS STRING), SAFE_CAST(NULL AS FLOAT64), SAFE_CAST(NULL AS FLOAT64))]
+------------------------------------------------------------------------------------------------------------------------
+SELECT CAST(null as STRUCT<ARRAY<STRUCT<INT64, STRING>>>)
+--------------------
+SELECT CAST(NULL AS STRUCT<
+		ARRAY<STRUCT<INT64, STRING>>
+	>)
+------------------------------------------------------------------------------------------------------------------------
+SELECT `a-b-c-d-e.udfs.st`(1);
+--------------------
+SELECT `a-b-c-d-e`.udfs.st(1);
+------------------------------------------------------------------------------------------------------------------------
+  SELECT
+    campaign.key AS campaign_key,
+    campaign.start_date AS campaign_start_date,
+    campaign.end_date AS campaign_end_date,
+  FROM
+    UNNEST([
+      STRUCT(
+        'trial_campaign' AS key,
+        '2024-11-17T17:00:00+00:00' AS start_date,
+        '2024-12-01T16:59:59+00:00' AS end_date,
+        ARRAY<STRUCT<key STRING, start_date STRING, end_date STRING>>[
+          STRUCT('mission_1', '2024-11-17T17:00:00+00:00', '2024-11-24T16:59:59+00:00'),
+          STRUCT('mission_2', '2024-11-24T17:00:00+00:00', '2024-12-01T16:59:59+00:00')
+        ] AS missions
+      )
+    ]) AS campaign
+--------------------
+SELECT campaign.key AS campaign_key, campaign.start_date AS campaign_start_date, campaign.end_date AS campaign_end_date
+FROM UNNEST([STRUCT('trial_campaign' AS key, '2024-11-17T17:00:00+00:00' AS start_date, '2024-12-01T16:59:59+00:00' AS end_date, ARRAY<STRUCT<key STRING, start_date STRING, end_date STRING>>[STRUCT('mission_1', '2024-11-17T17:00:00+00:00', '2024-11-24T16:59:59+00:00'),
+	STRUCT('mission_2', '2024-11-24T17:00:00+00:00', '2024-12-01T16:59:59+00:00')] AS missions)]) AS campaign
+------------------------------------------------------------------------------------------------------------------------
+CREATE TEMP FUNCTION invalidRoute(polyline1 STRING)
+  RETURNS BOOL
+  LANGUAGE js AS
+  "return (lengthOfEncodedPolyline(polyline1) <= 1)"
+  OPTIONS (library="gs://bi_cloud_storage_ees6see6/public/lib/polyutil_new.js");
+--------------------
+CREATE TEMPORARY FUNCTION invalidRoute (
+	polyline1 STRING
+)
+RETURNS BOOL
+LANGUAGE js
+OPTIONS (library = 'gs://bi_cloud_storage_ees6see6/public/lib/polyutil_new.js')
+AS """return (lengthOfEncodedPolyline(polyline1) <= 1)""";
+------------------------------------------------------------------------------------------------------------------------
+create temporary function poly(polygon string)
+returns string language js as """
+var res = JSON.parse(polygon);
+var l = res.length;
+var i;
+for (i=0; i<l; i++) {
+  temp = res[i][0]
+  res[i][0] = res[i][1]
+  res[i][1] = temp
+};
+var last = [res[0][0],res[0][1]];
+res.push(last);
+var geojson = {"type": "Polygon", "coordinates" : [res]}
+return JSON.stringify(geojson);
+"""
+OPTIONS();
+--------------------
+CREATE TEMPORARY FUNCTION poly (
+	polygon string
+)
+RETURNS string
+LANGUAGE js
+AS """
+var res = JSON.parse(polygon);
+var l = res.length;
+var i;
+for (i=0; i<l; i++) {
+  temp = res[i][0]
+  res[i][0] = res[i][1]
+  res[i][1] = temp
+};
+var last = [res[0][0],res[0][1]];
+res.push(last);
+var geojson = {"type": "Polygon", "coordinates" : [res]}
+return JSON.stringify(geojson);
+""";
+------------------------------------------------------------------------------------------------------------------------
+CREATE TEMP FUNCTION myFunc(a FLOAT64, b STRING)
+RETURNS STRING
+LANGUAGE js
+AS r"""
+  // Assumes 'doInterestingStuff' is defined in one of the library files.
+  return doInterestingStuff(a, b);
+"""
+OPTIONS (
+    library=['gs://my-bucket/path/to/lib1.js', 'gs://my-bucket/path/to/lib2.js']);
+--------------------
+CREATE TEMPORARY FUNCTION myFunc (
+	a FLOAT64,
+	b STRING
+)
+RETURNS STRING
+LANGUAGE js
+OPTIONS (library = ['gs://my-bucket/path/to/lib1.js', 'gs://my-bucket/path/to/lib2.js'])
+AS """
+  // Assumes 'doInterestingStuff' is defined in one of the library files.
+  return doInterestingStuff(a, b);
+""";
+------------------------------------------------------------------------------------------------------------------------
+SELECT DATE(verify_timestamp, 'Asia/Jakarta') AS jakarta_data_date, app_version, device_platform as device_platform_name, 
+BU as business_unit_name, verification_method as verification_type,
+  CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(50)] AS NUMERIC) AS p50_granted_time_in_second,
+  CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(75)] AS NUMERIC) AS p75_granted_time_in_second,
+  CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(90)] AS NUMERIC) AS p90_granted_time_in_second,
+  CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(95)] AS NUMERIC) AS p95_granted_time_in_second,
+  CAST(AVG(time_diff) AS NUMERIC) AS average_login_time_in_second,
+  CURRENT_TIMESTAMP() AS load_timestamp,
+  CAST('2024-10-03T00:00:00Z' AS TIMESTAMP) AS last_modified_timestamp
+FROM 
+  data
+--------------------
+SELECT DATE(verify_timestamp, 'Asia/Jakarta') AS jakarta_data_date, app_version, device_platform AS device_platform_name
+	, BU AS business_unit_name, verification_method AS verification_type, CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(50)] AS NUMERIC) AS p50_granted_time_in_second, CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(75)] AS NUMERIC) AS p75_granted_time_in_second, CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(90)] AS NUMERIC) AS p90_granted_time_in_second
+	, CAST(APPROX_QUANTILES(time_diff, 100 IGNORE NULLS)[OFFSET(95)] AS NUMERIC) AS p95_granted_time_in_second, CAST(AVG(time_diff) AS NUMERIC) AS average_login_time_in_second, CURRENT_TIMESTAMP() AS load_timestamp, CAST('2024-10-03T00:00:00Z' AS TIMESTAMP) AS last_modified_timestamp
+FROM data
+------------------------------------------------------------------------------------------------------------------------
+SELECT SAFE_CAST(var_start_date AS STRING FORMAT 'DD')
+--------------------
+SELECT SAFE_CAST(var_start_date AS STRING FORMAT 'DD')
+------------------------------------------------------------------------------------------------------------------------
+select 1,2,
+union all
+select 2, 3
+--------------------
+SELECT 1, 2
+UNION ALL
+SELECT 2, 3
+------------------------------------------------------------------------------------------------------------------------
+IF source_start_date <= latest_old_table_partition
+  THEN
+  SET previous_partition = (
+          SELECT MAX(_partitiontime)
+              from `p-gofin-id-data-raw.data_science_us.dm_customer_cs_cscore`
+          WHERE
+              _partitiontime < TIMESTAMP(source_start_date)
+      );
+
+  SET latest_partition = (
+        SELECT MAX(_partitiontime) as partitiontime
+            from `p-gofin-id-data-raw.data_science_us.dm_customer_cs_cscore`
+      );
+ELSEIF source_start_date = first_new_table_partition
+  THEN
+  SET previous_partition = TIMESTAMP(latest_old_table_partition);
+  SET latest_partition = TIMESTAMP(first_new_table_partition);
+ELSE
+  SET previous_partition = (
+        SELECT MAX(_partitiontime) as partitiontime
+            from `p-gofin-id-data-raw.data_science_us.m_cust_pl_c_scores`
+        WHERE
+            _partitiontime < TIMESTAMP(source_start_date)
+      );
+
+  SET latest_partition = (
+        SELECT MAX(_partitiontime) 
+            from `p-gofin-id-data-raw.data_science_us.m_cust_pl_c_scores`
+      );
+END IF;
+--------------------
+IF source_start_date <= latest_old_table_partition
+	THEN
+	SET previous_partition =(
+		SELECT MAX(_partitiontime)
+		FROM `p-gofin-id-data-raw`.data_science_us.dm_customer_cs_cscore
+		WHERE _partitiontime < TIMESTAMP(source_start_date)
+	);
+	SET latest_partition =(
+		SELECT MAX(_partitiontime) AS partitiontime
+		FROM `p-gofin-id-data-raw`.data_science_us.dm_customer_cs_cscore
+	);
+ELSEIF source_start_date = first_new_table_partition
+ THEN
+	SET previous_partition = TIMESTAMP(latest_old_table_partition);
+	SET latest_partition = TIMESTAMP(first_new_table_partition);
+ELSE
+	SET previous_partition =(
+		SELECT MAX(_partitiontime) AS partitiontime
+		FROM `p-gofin-id-data-raw`.data_science_us.m_cust_pl_c_scores
+		WHERE _partitiontime < TIMESTAMP(source_start_date)
+	);
+	SET latest_partition =(
+		SELECT MAX(_partitiontime)
+		FROM `p-gofin-id-data-raw`.data_science_us.m_cust_pl_c_scores
+	);
+END IF;
+------------------------------------------------------------------------------------------------------------------------
+select a, b, c
+from t1
+group by all
+--------------------
+SELECT a, b, c
+FROM t1
+GROUP BY ALL
+------------------------------------------------------------------------------------------------------------------------
+BEGIN
+	BEGIN TRANSACTION;
+	COMMIT TRANSACTION;
+EXCEPTION WHEN ERROR THEN
+  RAISE USING message = FORMAT("Error %s at %s because of statement %s.", @@error.message, @@error.formatted_stack_trace, @@error.statement_text);
+  ROLLBACK TRANSACTION;
+END
+--------------------
+BEGIN
+	START TRANSACTION;
+	COMMIT TRANSACTION;
+EXCEPTION
+	WHEN ERROR THEN
+		RAISE USING MESSAGE = FORMAT('Error %s at %s because of statement %s.', @@error.message, @@error.formatted_stack_trace, @@error.statement_text);
+		ROLLBACK TRANSACTION;
+END;
+------------------------------------------------------------------------------------------------------------------------
+select PARSE_DATE("%Y%m%d", date.date_id) as date, week.week_start_date
+ from t1
+--------------------
+SELECT PARSE_DATE('%Y%m%d', date.date_id) AS date, week.week_start_date
+FROM t1
+------------------------------------------------------------------------------------------------------------------------
+WITH Races AS (
+ SELECT "800M" AS race,
+   [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+    STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+    STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+    STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+    STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+    STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+    STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+    STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] AS laps),
+    STRUCT("Nathan" AS name, ARRAY<FLOAT64>[] AS laps),
+    STRUCT("David" AS name, NULL AS laps)]
+    AS participants)
+SELECT
+  name, sum(duration) AS finish_time
+FROM Races CROSS JOIN Races.participants LEFT JOIN participants.laps AS duration
+GROUP BY name;
+--------------------
+WITH Races AS (
+		SELECT '800M' AS race, [STRUCT('Rudisha' AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+			STRUCT('Makhloufi' AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+			STRUCT('Murphy' AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+			STRUCT('Bosse' AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+			STRUCT('Rotich' AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+			STRUCT('Lewandowski' AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+			STRUCT('Kipketer' AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+			STRUCT('Berian' AS name, [23.7, 26.1, 27.0, 29.3] AS laps),
+			STRUCT('Nathan' AS name, ARRAY<FLOAT64>[] AS laps),
+			STRUCT('David' AS name, NULL AS laps)] AS participants
+	)
+SELECT name, sum(duration) AS finish_time
+FROM Races
+	CROSS JOIN Races.participants
+	LEFT JOIN participants.laps duration
+GROUP BY name;
+------------------------------------------------------------------------------------------------------------------------
+SELECT
+  some_numbers,
+  some_numbers[0] AS index_0,
+  some_numbers[OFFSET(1)] AS offset_1,
+  some_numbers[ORDINAL(1)] AS ordinal_1
+FROM Sequences
+--------------------
+SELECT some_numbers, some_numbers[0] AS index_0, some_numbers[OFFSET(1)] AS offset_1, some_numbers[ORDINAL(1)] AS ordinal_1
+FROM Sequences
+------------------------------------------------------------------------------------------------------------------------
+WITH
+  Sequences AS (
+    SELECT [0, 1, 1, 2, 3, 5] AS some_numbers UNION ALL
+    SELECT [2, 4, 8, 16, 32] UNION ALL
+    SELECT [5, 10]
+  )
+SELECT * FROM Sequences
+--------------------
+WITH Sequences AS (
+		SELECT [0, 1, 1, 2, 3,
+			5] AS some_numbers
+		UNION ALL
+		SELECT [2, 4, 8, 16, 32]
+		UNION ALL
+		SELECT [5, 10]
+	)
+SELECT *
+FROM Sequences
+------------------------------------------------------------------------------------------------------------------------
+merge into t1 as tgt
+using
+(select * from base) as src
+ON FALSE
+WHEN NOT MATCHED BY SOURCE
+THEN DELETE
+when not matched
+then insert
+(business_id)
+values(src.business_id)
+--------------------
+MERGE INTO t1 tgt
+USING (
+	SELECT *
+	FROM base
+) src ON false
+WHEN NOT MATCHED BY SOURCE THEN DELETE
+WHEN NOT MATCHED THEN INSERT (business_id)
+VALUES (src.business_id)
+------------------------------------------------------------------------------------------------------------------------
+MERGE dataset.Inventory T
+USING dataset.NewArrivals S
+ON T.product = S.product
+WHEN MATCHED THEN
+  UPDATE SET quantity = T.quantity + S.quantity
+--------------------
+MERGE INTO dataset.Inventory T
+USING dataset.NewArrivals S ON T.product = S.product
+WHEN MATCHED THEN UPDATE
+SET quantity = T.quantity + S.quantity
+------------------------------------------------------------------------------------------------------------------------
+MERGE dataset.Inventory T
+USING (SELECT product, quantity, state FROM dataset.NewArrivals t1 JOIN dataset.Warehouse t2 ON t1.warehouse = t2.warehouse) S
+ON T.product = S.product
+WHEN MATCHED AND state = 'CA' THEN
+  UPDATE SET quantity = T.quantity + S.quantity
+WHEN MATCHED THEN
+  DELETE
+--------------------
+MERGE INTO dataset.Inventory T
+USING (
+	SELECT product, quantity, state
+	FROM dataset.NewArrivals t1
+		JOIN dataset.Warehouse t2 ON t1.warehouse = t2.warehouse
+) S ON T.product = S.product
+WHEN MATCHED THEN UPDATE
+SET quantity = T.quantity + S.quantity
+WHERE state = 'CA'
+WHEN MATCHED THEN DELETE
+------------------------------------------------------------------------------------------------------------------------
+MERGE dataset.Inventory T
+USING dataset.NewArrivals S
+ON FALSE
+WHEN NOT MATCHED AND product LIKE '%washer%' THEN
+  INSERT (product, quantity) VALUES(product, quantity)
+WHEN NOT MATCHED BY SOURCE AND product LIKE '%washer%' THEN
+  DELETE
+--------------------
+MERGE INTO dataset.Inventory T
+USING dataset.NewArrivals S ON false
+WHEN NOT MATCHED THEN INSERT (product, quantity)
+VALUES (product, quantity)
+	WHERE product LIKE '%washer%'
+WHEN NOT MATCHED BY SOURCE AND product LIKE '%washer%' THEN DELETE
+------------------------------------------------------------------------------------------------------------------------
+MERGE dataset.NewArrivals T
+USING (SELECT * FROM dataset.NewArrivals WHERE warehouse <> 'warehouse #2') S
+ON T.product = S.product
+WHEN MATCHED AND T.warehouse = 'warehouse #1' THEN
+  UPDATE SET quantity = T.quantity + 20
+WHEN MATCHED THEN
+  DELETE
+--------------------
+MERGE INTO dataset.NewArrivals T
+USING (
+	SELECT *
+	FROM dataset.NewArrivals
+	WHERE warehouse <> 'warehouse #2'
+) S ON T.product = S.product
+WHEN MATCHED THEN UPDATE
+SET quantity = T.quantity + 20
+WHERE T.warehouse = 'warehouse #1'
+WHEN MATCHED THEN DELETE
+------------------------------------------------------------------------------------------------------------------------
+MERGE dataset.Inventory T
+USING dataset.NewArrivals S
+ON T.product = S.product
+WHEN MATCHED THEN
+  UPDATE SET quantity = T.quantity + S.quantity
+WHEN NOT MATCHED THEN
+  INSERT (product, quantity) VALUES(product, quantity)
+--------------------
+MERGE INTO dataset.Inventory T
+USING dataset.NewArrivals S ON T.product = S.product
+WHEN MATCHED THEN UPDATE
+SET quantity = T.quantity + S.quantity
+WHEN NOT MATCHED THEN INSERT (product, quantity)
+VALUES (product, quantity)
+------------------------------------------------------------------------------------------------------------------------
+MERGE dataset.DetailedInventory T
+USING dataset.Inventory S
+ON T.product = S.product
+WHEN NOT MATCHED AND quantity < 20 THEN
+  INSERT(product, quantity, supply_constrained, comments)
+  VALUES(product, quantity, true, NULL)
+WHEN NOT MATCHED THEN
+  INSERT(product, quantity, supply_constrained)
+  VALUES(product, quantity, false)
+--------------------
+MERGE INTO dataset.DetailedInventory T
+USING dataset.Inventory S ON T.product = S.product
+WHEN NOT MATCHED THEN INSERT (product, quantity, supply_constrained, comments)
+VALUES (product, quantity, true, NULL)
+	WHERE quantity < 20
+WHEN NOT MATCHED THEN INSERT (product, quantity, supply_constrained)
+VALUES (product, quantity, false)
+------------------------------------------------------------------------------------------------------------------------
+SELECT ARRAY(SELECT AS STRUCT
+        cast(coalesce(a,0) as NUMERIC) as seconds_amount,
+        cast(coalesce(b,0) as NUMERIC) as nanos_amount,
+      )
+from t1
+--------------------
+SELECT ARRAY(
+		SELECT AS STRUCT CAST(coalesce(a, 0) AS NUMERIC) AS seconds_amount, CAST(coalesce(b, 0) AS NUMERIC) AS nanos_amount
+	)
+FROM t1
+------------------------------------------------------------------------------------------------------------------------
+SELECT "[\"sameday\"]"
+--------------------
+SELECT '["sameday"]'
+------------------------------------------------------------------------------------------------------------------------
+SELECT DATEADD("2024-10-01", -1, 'mm');
+--------------------
+SELECT DATEADD('2024-10-01', -1, 'mm');
+------------------------------------------------------------------------------------------------------------------------
+DROP TABLE `a.b`;
+--------------------
+DROP TABLE a.b;
+------------------------------------------------------------------------------------------------------------------------
+INSERT `a.b`
+SELECT *
+FROM `c.d`;
+--------------------
+INSERT INTO a.b
+SELECT *
+FROM c.d;
+------------------------------------------------------------------------------------------------------------------------
+/* a
+   b
+   c
+*/
+select 1
+--------------------
+/* a
+   b
+   c
+*/
+SELECT 1
+------------------------------------------------------------------------------------------------------------------------
+
+select * FROM
+##`a-b.c.e`
+`a-b-c-e`
+--------------------
+SELECT *
+FROM  ##`a-b.c.e`
+`a-b-c-e`
+------------------------------------------------------------------------------------------------------------------------
+SELECT *
+FROM p-- [NEW!]
+--------------------
+SELECT *
+FROM p -- [NEW!]
+------------------------------------------------------------------------------------------------------------------------
+SELECT a.* EXCEPT (f1, f2) from t
+--------------------
+SELECT a.* EXCEPT(f1, f2)
+FROM t
+------------------------------------------------------------------------------------------------------------------------
+SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
+--------------------
+SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
+------------------------------------------------------------------------------------------------------------------------
+select """abc""", '''it's''', '''Title:"Boy"''', '''two
+                                                 lines''', '''why\?'''
+--------------------
+SELECT 'abc', 'it''s', 'Title:"Boy"'
+	, 'two
+                                                 lines', 'why\?'
+------------------------------------------------------------------------------------------------------------------------
+UPDATE
+  `p1` main
+SET
+  a = FALSE,
+  b = dup.x
+FROM
+  tp dup
+WHERE
+  main.x = dup.u;
+--------------------
+UPDATE `p1` main
+SET a = false, b = dup.x
+FROM tp dup
+WHERE main.x = dup.u;
+------------------------------------------------------------------------------------------------------------------------
+SELECT STRUCT<x int64, y string>(1, t.str_col)
+--------------------
+SELECT STRUCT<x int64, y string>(1, t.str_col)
+------------------------------------------------------------------------------------------------------------------------
+SELECT
+    CAST(NULL AS STRING) AS pn,
+    ARRAY(
+      SELECT AS STRUCT
+        CAST(NULL AS STRING) pt,
+        CAST(NULL AS STRING) pn
+      ) AS p,
+    a.s,
+FROM `d-k-id-m.g.x` AS a
+--------------------
+SELECT CAST(NULL AS STRING) AS pn, ARRAY(
+		SELECT AS STRUCT CAST(NULL AS STRING) AS pt, CAST(NULL AS STRING) AS pn
+	) AS p, a.s
+FROM `d-k-id-m`.g.x a
+------------------------------------------------------------------------------------------------------------------------
+WITH PlayerStats AS (
+  SELECT 'Adams' as LastName, 'Noam' as FirstName, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 'Jie', 0 UNION ALL
+  SELECT 'Coolidge', 'Kiran', 1 UNION ALL
+  SELECT 'Adams', 'Noam', 4 UNION ALL
+  SELECT 'Buchanan', 'Jie', 13)
+SELECT
+  SUM(PointsScored) AS total_points,
+  FirstName AS first_name,
+  LastName AS last_name
+FROM PlayerStats
+GROUP BY ALL;
+--------------------
+WITH PlayerStats AS (
+		SELECT 'Adams' AS LastName, 'Noam' AS FirstName, 3 AS PointsScored
+		UNION ALL
+		SELECT 'Buchanan', 'Jie', 0
+		UNION ALL
+		SELECT 'Coolidge', 'Kiran', 1
+		UNION ALL
+		SELECT 'Adams', 'Noam', 4
+		UNION ALL
+		SELECT 'Buchanan', 'Jie', 13
+	)
+SELECT SUM(PointsScored) AS total_points, FirstName AS first_name, LastName AS last_name
+FROM PlayerStats
+GROUP BY ALL;
+------------------------------------------------------------------------------------------------------------------------
+DELETE FROM `data-c-id-mart.x.b` AS a
+--------------------
+DELETE FROM `data-c-id-mart`.x.b a
+------------------------------------------------------------------------------------------------------------------------
+SELECT case when contains(u.roles[company_id_cross], 'report_reader') then 1 else 0 end is_report_reader from t1
+--------------------
+SELECT CASE
+		WHEN CONTAINS (u.roles[company_id_cross], 'report_reader') THEN 1
+		ELSE 0
+	END AS is_report_reader
+FROM t1
+------------------------------------------------------------------------------------------------------------------------
+SELECT ARRAY_AGG(service_type_name IGNORE NULLS ORDER BY event_timestamp DESC LIMIT 10)[OFFSET(0)] AS service_type_name
+--------------------
+SELECT ARRAY_AGG(service_type_name IGNORE NULLS ORDER BY event_timestamp DESC LIMIT 10)[OFFSET(0)] AS service_type_name
+------------------------------------------------------------------------------------------------------------------------
+SELECT * from a table
+--------------------
+SELECT *
+FROM a table
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE
+  mydataset.newtable (transaction_id INT64, transaction_ts TIMESTAMP)
+PARTITION BY
+  TIMESTAMP_TRUNC(transaction_ts, DAY)
+  OPTIONS (
+    partition_expiration_days = 3,
+    require_partition_filter = TRUE);
+--------------------
+CREATE TABLE mydataset.newtable (
+	transaction_id INT64,
+	transaction_ts TIMESTAMP
+)
+PARTITION BY TIMESTAMP_TRUNC(transaction_ts, DAY)
+OPTIONS (
+	partition_expiration_days = 3,
+	require_partition_filter = true
+);
+------------------------------------------------------------------------------------------------------------------------
+SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
+--------------------
+SELECT SAFE_CAST('apple' AS INT64) AS not_a_number;
+------------------------------------------------------------------------------------------------------------------------
+SELECT
+ARRAY_AGG(
+  table ORDER BY ts DESC LIMIT 1
+)[OFFSET(0)] event
+FROM cleaned
+--------------------
+SELECT ARRAY_AGG(table ORDER BY ts DESC LIMIT 1)[OFFSET(0)] AS event
+FROM cleaned
+------------------------------------------------------------------------------------------------------------------------
+SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
+FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
+--------------------
+SELECT ARRAY_AGG(x LIMIT 5) AS array_agg
+FROM UNNEST([2, 1, -2, 3, -2,
+	1, 2]) AS x;
+------------------------------------------------------------------------------------------------------------------------
+ASSERT (
+  (SELECT COUNT(*) > 5 FROM UNNEST([1, 2, 3, 4, 5, 6]))
+) AS 'Table must contain more than 5 rows.';
+--------------------
+ASSERT (
+	SELECT COUNT(*) > 5
+	FROM UNNEST([1, 2, 3, 4, 5,
+		6]))
+AS '''Table must contain more than 5 rows.''';
+------------------------------------------------------------------------------------------------------------------------
+SELECT f1
+FROM UNNEST(t1)
+WHERE f1 IS NOT NULL
+ORDER BY event_timestamp DESC
+LIMIT 1
+--------------------
+SELECT f1
+FROM UNNEST(t1)
+WHERE f1 IS NOT NULL
+ORDER BY event_timestamp DESC
+LIMIT 1
+------------------------------------------------------------------------------------------------------------------------
+CREATE TEMP TABLE xxx
+PARTITION BY date(partitiontime)
+CLUSTER BY latest_status_name
+AS
+  select 1;
+--------------------
+CREATE TEMPORARY TABLE xxx
+PARTITION BY date(partitiontime)
+CLUSTER BY latest_status_name
+AS
+SELECT 1;
+------------------------------------------------------------------------------------------------------------------------
+select *
+from t
+where TIMESTAMP(abc.created_timestamp) >= area.effective_timestamp
+--------------------
+SELECT *
+FROM t
+WHERE TIMESTAMP(abc.created_timestamp) >= area.effective_timestamp
+------------------------------------------------------------------------------------------------------------------------
 WITH
   Items AS (
     SELECT STRUCT('blue' AS color, 'round' AS shape) AS info UNION ALL
@@ -26,7 +1807,7 @@ CREATE TABLE mydataset.myclusteredtable
   transaction_amount NUMERIC
 )
 PARTITION BY DATE(_PARTITIONTIME)
-CLUSTERED BY
+CLUSTER BY
   customer_id
 OPTIONS (
   partition_expiration_days=3,
@@ -37,13 +1818,11 @@ CREATE TABLE mydataset.myclusteredtable (
 	customer_id STRING,
 	transaction_amount NUMERIC
 )
-PARTITION BY (
-	DATE(_PARTITIONTIME)
-)
-CLUSTERED BY (customer_id)
+PARTITION BY DATE(_PARTITIONTIME)
+CLUSTER BY customer_id
 OPTIONS (
-	'partition_expiration_days' = 3,
-	'description' = "a table clustered by customer_id"
+	partition_expiration_days = 3,
+	description = 'a table clustered by customer_id'
 )
 ------------------------------------------------------------------------------------------------------------------------
 CREATE TABLE `myproject.mydataset.mytable`
@@ -55,13 +1834,13 @@ OPTIONS(
   labels=[("org_unit", "development")]
 )
 --------------------
-CREATE TABLE `myproject.mydataset.mytable`
-CLONE `myproject.mydataset.mytablesnapshot`
+CREATE TABLE myproject.mydataset.mytable
+CLONE myproject.mydataset.mytablesnapshot
 OPTIONS (
-	'expiration_timestamp' = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 365 DAY),
-	'friendly_name' = "my_table",
-	'description' = "A table that expires in 1 year",
-	'labels' = [("org_unit", "development")]
+	expiration_timestamp = TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 365 DAY),
+	friendly_name = 'my_table',
+	description = 'A table that expires in 1 year',
+	labels = [('org_unit', 'development')]
 )
 ------------------------------------------------------------------------------------------------------------------------
 SELECT
@@ -78,3 +1857,15 @@ SELECT
 	item, AVG(quantity, contribution_bounds_per_group => (0, 100)) AS average_quantity
 FROM professors
 GROUP BY item;
+------------------------------------------------------------------------------------------------------------------------
+select cast(json_parse(tickets_fields_value) as array<varchar>) as tickets_fields_value
+--------------------
+SELECT CAST(json_parse(tickets_fields_value) AS ARRAY<varchar>) AS tickets_fields_value
+------------------------------------------------------------------------------------------------------------------------
+SELECT *
+ FROM operator_raw_vs_fdm
+ UNPIVOT (discrepancy_amount FOR status IN (`discrepancy on gmv_amount`, `discrepancy on gmv_take_rate_amount`, `discrepancy on insurance_amount`, `discrepancy on discount_amount`))
+--------------------
+SELECT *
+FROM operator_raw_vs_fdm
+UNPIVOT (discrepancy_amount FOR status IN ('discrepancy on gmv_amount', 'discrepancy on gmv_take_rate_amount', 'discrepancy on insurance_amount', 'discrepancy on discount_amount'))

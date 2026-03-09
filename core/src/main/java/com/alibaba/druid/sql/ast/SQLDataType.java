@@ -50,7 +50,10 @@ public interface SQLDataType extends SQLObject {
         String VARCHAR = "VARCHAR";
         String VARBINARY = "VARBINARY";
         String DATE = "DATE";
+        String DATETIME = "DATETIME";
+        String TIME = "TIME";
         String TIMESTAMP = "TIMESTAMP";
+        String TIMESTAMP_NTZ = "TIMESTAMP_NTZ";
         String XML = "XML";
 
         String DECIMAL = "DECIMAL";
@@ -68,6 +71,7 @@ public interface SQLDataType extends SQLObject {
         String BOOLEAN = "BOOLEAN";
 
         String FLOAT = "FLOAT";
+        String JSON = "JSON";
     }
 
     boolean isInt();
@@ -77,4 +81,8 @@ public interface SQLDataType extends SQLObject {
     public boolean isString();
 
     public boolean hasKeyLength();
+
+    static SQLDataType of(String name) {
+        return new SQLDataTypeImpl(name);
+    }
 }

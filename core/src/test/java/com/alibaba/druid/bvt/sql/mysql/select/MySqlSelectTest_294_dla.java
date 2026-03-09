@@ -22,7 +22,6 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
 
 public class MySqlSelectTest_294_dla extends MysqlTest {
-
     public void test_1() throws Exception {
         String sql = "/*+engine=spark*/\n" +
                 "select  date_p,os_p,nvl(channel,'新增') as channel,\n" +
@@ -75,12 +74,12 @@ public class MySqlSelectTest_294_dla extends MysqlTest {
                 "\t) n\n" +
                 "\t\tLEFT JOIN (\n" +
                 "\t\t\tSELECT os_p, server_id\n" +
-                "\t\t\t\t, sum(CASE \n" +
+                "\t\t\t\t, sum(CASE\n" +
                 "\t\t\t\t\tWHEN function_type = 'gjmy' THEN select_pic_cnt\n" +
                 "\t\t\t\t\tWHEN function_type IN ('zp', 'ps', 'video', 'fxgj', 'film') THEN take_pic_cnt\n" +
                 "\t\t\t\t\tELSE 0\n" +
                 "\t\t\t\tEND) AS tp_guanjian_cnt\n" +
-                "\t\t\t\t, sum(CASE \n" +
+                "\t\t\t\t, sum(CASE\n" +
                 "\t\t\t\t\tWHEN function_type != 'qita' THEN save_cnt\n" +
                 "\t\t\t\t\tELSE 0\n" +
                 "\t\t\t\tEND) AS svp_cnt\n" +
@@ -97,7 +96,6 @@ public class MySqlSelectTest_294_dla extends MysqlTest {
 
         System.out.println(stmt.toString());
     }
-
 
     public void testRemoveBackQuoteFromSql() {
         String ret = SQLUtils.parseSingleStatement("select * from `hello`.`world`", DbType.mysql, SQLParserFeature.IgnoreNameQuotes).toString();

@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.MysqlTest;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 
-
 public class MySqlSelectTest_20190424_01 extends MysqlTest {
     public void test_0() throws Exception {
         String sql = "/*+ engine= MPP, dump-header= [DUMP DATA]*/\n" +
@@ -55,7 +54,7 @@ public class MySqlSelectTest_20190424_01 extends MysqlTest {
         assertEquals("/*+ engine= MPP, dump-header= [DUMP DATA]*/\n" +
                 "SELECT t3.sim_aid AS __aid\n" +
                 "FROM (\n" +
-                "\tSELECT CASE \n" +
+                "\tSELECT CASE\n" +
                 "\t\t\tWHEN t2.__aid IS NOT NULL THEN floor(t1.s * 1.05)\n" +
                 "\t\t\tELSE t1.s\n" +
                 "\t\tEND AS sum_score, t1.sim_aid AS sim_aid\n" +
@@ -98,6 +97,4 @@ public class MySqlSelectTest_20190424_01 extends MysqlTest {
                 "\tOR (t3.sum_score = 1986\n" +
                 "\t\tAND t3.sim_aid % 100 < 97)", stmt.toString());
     }
-
-
 }

@@ -20,21 +20,20 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleSchemaStatVisitor;
-import org.junit.Assert;
 
 import java.util.List;
 
 public class OracleSelectTest68 extends OracleTest {
     public void test_0() throws Exception {
         String sql = //
-                "INSERT INTO SB_ZZS_LDSK_2016 SELECT DJXH, :B1 , NVL(SUM(CASE WHEN ZZSLX = '2' AND LDLX = '1' THEN LDSE END), 0) SQLDSE_BQ, NVL(SUM(CASE WHEN ZZSLX = '1' AND LDLX = '1' THEN LDSE END), 0) SQLDSE_LJ, NVL(SUM(CASE WHEN LDLX = '2' THEN LDSE END), 0) SQLDSE_JZ, 0, 0, 0,SYSDATE FROM (SELECT ZZSLX, LDLX, DJXH, SUM(BCLDBHS) LDSE FROM (SELECT ZZSLX, LDLX, DJXH, SUM(T.BCLDBHS) BCLDBHS FROM HX_SB.SB_ZZS_LDSKLSZ@JSCX T WHERE T.SKSSQZ < ADD_MONTHS(:B1 ,-1)+1 AND DJXH IN (SELECT NSRDZDAH FROM DJ_NSRXX_JS_GZSB) AND T.CZLX_DM IN ('10', '66', '68', '53', '56', '61', '64') GROUP BY ZZSLX, LDLX, DJXH UNION ALL SELECT ZZSLX, LDLX, DJXH, -SUM(T.BCLDBHS) BCLDBHS FROM HX_SB.SB_ZZS_LDSKLSZ@JSCX T WHERE T.SKSSQZ = ADD_MONTHS(:B1 ,-1) AND DJXH IN (SELECT NSRDZDAH FROM DJ_NSRXX_JS_GZSB) AND T.CZLX_DM IN ('53', '56', '61', '64') GROUP BY ZZSLX, LDLX, DJXH) GROUP BY ZZSLX, LDLX, DJXH) A GROUP BY DJXH"; //
+                "INSERT INTO SB_ZZS_LDSK_2016 SELECT DJXH, :B1 , NVL(SUM(CASE WHEN ZZSLX = '2' AND LDLX = '1' THEN LDSE END), 0) SQLDSE_BQ, NVL(SUM(CASE WHEN ZZSLX = '1' AND LDLX = '1' THEN LDSE END), 0) SQLDSE_LJ, NVL(SUM(CASE WHEN LDLX = '2' THEN LDSE END), 0) SQLDSE_JZ, 0, 0, 0,SYSDATE FROM (SELECT ZZSLX, LDLX, DJXH, SUM(BCLDBHS) LDSE FROM (SELECT ZZSLX, LDLX, DJXH, SUM(T.BCLDBHS) BCLDBHS FROM HX_SB.SB_ZZS_LDSKLSZ@JSCX T WHERE T.SKSSQZ < ADD_MONTHS(:B1 ,-1)+1 AND DJXH IN (SELECT NSRDZDAH FROM DJ_NSRXX_JS_GZSB) AND T.CZLX_DM IN ('10', '66', '68', '53', '56', '61', '64') GROUP BY ZZSLX, LDLX, DJXH UNION ALL SELECT ZZSLX, LDLX, DJXH, -SUM(T.BCLDBHS) BCLDBHS FROM HX_SB.SB_ZZS_LDSKLSZ@JSCX T WHERE T.SKSSQZ = ADD_MONTHS(:B1 ,-1) AND DJXH IN (SELECT NSRDZDAH FROM DJ_NSRXX_JS_GZSB) AND T.CZLX_DM IN ('53', '56', '61', '64') GROUP BY ZZSLX, LDLX, DJXH) GROUP BY ZZSLX, LDLX, DJXH) A GROUP BY DJXH";
 
         OracleStatementParser parser = new OracleStatementParser(sql);
         List<SQLStatement> statementList = parser.parseStatementList();
         SQLStatement stmt = statementList.get(0);
         print(statementList);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();
         stmt.accept(visitor);
@@ -45,26 +44,26 @@ public class OracleSelectTest68 extends OracleTest {
         System.out.println("relationships : " + visitor.getRelationships());
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(3, visitor.getTables().size());
+        assertEquals(3, visitor.getTables().size());
 
-//        Assert.assertEquals(10, visitor.getColumns().size());
+//        assertEquals(10, visitor.getColumns().size());
 
         {
             String text = SQLUtils.toOracleString(stmt);
 
             assertEquals("INSERT INTO SB_ZZS_LDSK_2016\n" +
                     "SELECT DJXH, :B1\n" +
-                    "\t, NVL(SUM(CASE \n" +
+                    "\t, NVL(SUM(CASE\n" +
                     "\t\tWHEN ZZSLX = '2'\n" +
                     "\t\t\tAND LDLX = '1'\n" +
                     "\t\tTHEN LDSE\n" +
                     "\tEND), 0) AS SQLDSE_BQ\n" +
-                    "\t, NVL(SUM(CASE \n" +
+                    "\t, NVL(SUM(CASE\n" +
                     "\t\tWHEN ZZSLX = '1'\n" +
                     "\t\t\tAND LDLX = '1'\n" +
                     "\t\tTHEN LDSE\n" +
                     "\tEND), 0) AS SQLDSE_LJ\n" +
-                    "\t, NVL(SUM(CASE \n" +
+                    "\t, NVL(SUM(CASE\n" +
                     "\t\tWHEN LDLX = '2' THEN LDSE\n" +
                     "\tEND), 0) AS SQLDSE_JZ\n" +
                     "\t, 0, 0, 0, SYSDATE\n" +
@@ -107,19 +106,19 @@ public class OracleSelectTest68 extends OracleTest {
         {
             String text = SQLUtils.toOracleString(stmt, SQLUtils.DEFAULT_LCASE_FORMAT_OPTION);
 
-            Assert.assertEquals("insert into SB_ZZS_LDSK_2016\n" +
+            assertEquals("insert into SB_ZZS_LDSK_2016\n" +
                     "select DJXH, :B1\n" +
-                    "\t, NVL(sum(case \n" +
+                    "\t, NVL(sum(case\n" +
                     "\t\twhen ZZSLX = '2'\n" +
                     "\t\t\tand LDLX = '1'\n" +
                     "\t\tthen LDSE\n" +
                     "\tend), 0) as SQLDSE_BQ\n" +
-                    "\t, NVL(sum(case \n" +
+                    "\t, NVL(sum(case\n" +
                     "\t\twhen ZZSLX = '1'\n" +
                     "\t\t\tand LDLX = '1'\n" +
                     "\t\tthen LDSE\n" +
                     "\tend), 0) as SQLDSE_LJ\n" +
-                    "\t, NVL(sum(case \n" +
+                    "\t, NVL(sum(case\n" +
                     "\t\twhen LDLX = '2' then LDSE\n" +
                     "\tend), 0) as SQLDSE_JZ\n" +
                     "\t, 0, 0, 0, sysdate\n" +
@@ -158,8 +157,8 @@ public class OracleSelectTest68 extends OracleTest {
                     ") A\n" +
                     "group by DJXH", text);
         }
-        // Assert.assertTrue(visitor.getColumns().contains(new TableStat.Column("acduser.vw_acd_info", "xzqh")));
+        // assertTrue(visitor.getColumns().contains(new TableStat.Column("acduser.vw_acd_info", "xzqh")));
 
-        // Assert.assertTrue(visitor.getOrderByColumns().contains(new TableStat.Column("employees", "last_name")));
+        // assertTrue(visitor.getOrderByColumns().contains(new TableStat.Column("employees", "last_name")));
     }
 }

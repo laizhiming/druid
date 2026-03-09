@@ -87,7 +87,7 @@ public class OdpsSelectTest24 extends TestCase {
                 "WHERE t1.add_date = '${date_minus_1}'\n" +
                 "\tOR t2.order_id IS NOT NULL\n" +
                 "GROUP BY t1.member_id, \n" +
-                "\tt3.city_id";//
+                "\tt3.city_id";
         assertEquals("SELECT ta.member_id AS member_id, ta.city_id\n" +
                 "\t, COUNT(IF(ta.add_date = '${date_minus_1}', 1, NULL)) AS order_cnt\n" +
                 "\t, COUNT(ta.is_open_order) AS open_order_cnt, COUNT(t1.is_normal_order) AS normal_order_cnt\n" +
@@ -137,7 +137,7 @@ public class OdpsSelectTest24 extends TestCase {
                 "ON t1.region_id = t3.region_id\n" +
                 "WHERE t1.add_date = '${date_minus_1}'\n" +
                 "\tOR t2.order_id IS NOT NULL\n" +
-                "GROUP BY t1.member_id, \n" +
+                "GROUP BY t1.member_id,\n" +
                 "\tt3.city_id", SQLUtils.formatOdps(sql));
 
         assertEquals("select ta.member_id as member_id, ta.city_id\n" +
@@ -189,7 +189,7 @@ public class OdpsSelectTest24 extends TestCase {
                 "on t1.region_id = t3.region_id\n" +
                 "where t1.add_date = '${date_minus_1}'\n" +
                 "\tor t2.order_id is not null\n" +
-                "group by t1.member_id, \n" +
+                "group by t1.member_id,\n" +
                 "\tt3.city_id", SQLUtils.formatOdps(sql, SQLUtils.DEFAULT_LCASE_FORMAT_OPTION));
 
         List<SQLStatement> statementList = SQLUtils.parseStatements(sql, JdbcConstants.ODPS);
@@ -215,5 +215,4 @@ public class OdpsSelectTest24 extends TestCase {
 
 //        assertTrue(visitor.getColumns().contains(new Column("abc", "name")));
     }
-
 }

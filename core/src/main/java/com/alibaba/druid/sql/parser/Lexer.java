@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.TimeZone;
 
 import static com.alibaba.druid.sql.parser.CharTypes.*;
+import static com.alibaba.druid.sql.parser.DialectFeature.LexerFeature.*;
 import static com.alibaba.druid.sql.parser.LayoutCharacters.EOI;
 import static com.alibaba.druid.sql.parser.SQLParserFeature.*;
 import static com.alibaba.druid.sql.parser.Token.*;
@@ -38,6 +39,7 @@ import static com.alibaba.druid.sql.parser.Token.*;
  * @author wenshao [szujobs@hotmail.com]
  */
 public class Lexer {
+    protected static final DialectFeature FEATURE = new DialectFeature();
     protected static SymbolTable symbols_l2 = new SymbolTable(512);
 
     protected int features; //SQLParserFeature.of(SQLParserFeature.EnableSQLBinaryOpExprGroup);
@@ -55,7 +57,7 @@ public class Lexer {
 
     protected Token token;
 
-    protected Keywords keywords = Keywords.DEFAULT_KEYWORDS;
+    protected Keywords keywords;
 
     protected String stringVal;
     protected long hashLCase; // fnv1a_64
@@ -84,14 +86,15 @@ public class Lexer {
     protected int startPos;
     protected int posLine;
     protected int posColumn;
+    protected DialectFeature dialectFeature;
 
     public Lexer(String input) {
         this(input, (CommentHandler) null);
     }
 
-//    public Lexer(String input, DbType dbType){
-//        this(input, (CommentHandler) null, dbType);
-//    }
+    public Lexer(String input, DbType dbType) {
+        this(input, null, dbType);
+    }
 
     public Lexer(String input, CommentHandler commentHandler) {
         this(input, true);
@@ -108,6 +111,13 @@ public class Lexer {
         } else if (DbType.dm == dbType) {
             this.keywords = Keywords.DM_KEYWORDS;
         }
+    }
+    protected Keywords loadKeywords() {
+        return Keywords.DEFAULT_KEYWORDS;
+    }
+
+    public boolean isKeepSourceLocation() {
+        return keepSourceLocation;
     }
 
     public boolean isKeepComments() {
@@ -251,6 +261,12 @@ public class Lexer {
             }
             ch = charAt(++pos);
         }
+        initDialectFeature();
+        this.keywords = loadKeywords();
+    }
+
+    protected void initDialectFeature() {
+        this.dialectFeature = FEATURE;
     }
 
     public Lexer(char[] input, int inputLength, boolean skipComment) {
@@ -283,7 +299,7 @@ public class Lexer {
         return token;
     }
 
-    public final boolean nextIf(Token token) {
+    public boolean nextIf(Token token) {
         if (this.token == token) {
             nextToken();
             return true;
@@ -492,18 +508,14 @@ public class Lexer {
     }
 
     public final void nextTokenValue() {
-        this.startPos = pos;
         while (ch == ' ') {
             scanChar();
         }
 
+        this.startPos = pos;
         if (ch == '\'') {
             bufPos = 0;
-            if (dbType == DbType.mysql) {
-                scanString2();
-            } else {
-                scanString();
-            }
+            scanString();
             return;
         }
 
@@ -702,7 +714,7 @@ public class Lexer {
                 } else if (pos + 2 < text.length()
                         && text.charAt(pos + 1) == ' '
                         && text.charAt(pos + 2) == '*'
-                        && dbType == DbType.odps
+                        && dialectFeatureEnabled(ScanSQLTypeBlockComment)
                 ) {
                     int index = text.indexOf("* /", pos + 3);
                     if (index == -1) {
@@ -715,7 +727,7 @@ public class Lexer {
                 }
             }
 
-            if (dbType == DbType.odps) {
+            if (dialectFeatureEnabled(ScanSQLTypeWithSemi)) {
                 while (ch == ';') {
                     ch = charAt(++pos);
 
@@ -856,6 +868,8 @@ public class Lexer {
                 return SQLType.SET_PROJECT;
             }
             return SQLType.SET;
+        } else if (hashCode == FnvHash.Constants.SETPROJECT) {
+            return SQLType.SET_PROJECT;
         } else if (hashCode == FnvHash.Constants.KILL) {
             return SQLType.KILL;
         } else if (hashCode == FnvHash.Constants.MSCK) {
@@ -970,25 +984,19 @@ public class Lexer {
             return SQLType.UNDO;
         } else if (hashCode == FnvHash.Constants.REMOVE) {
             return SQLType.REMOVE;
-        } else if (hashCode == FnvHash.Constants.FROM) {
-            if (dbType == DbType.odps || dbType == DbType.hive) {
-                return SQLType.INSERT_MULTI;
-            }
+        } else if (hashCode == FnvHash.Constants.FROM && dialectFeatureEnabled(ScanSQLTypeWithFrom)) {
+            return SQLType.INSERT_MULTI;
         } else if (hashCode == FnvHash.Constants.ADD) {
             return SQLType.ADD;
         } else if (hashCode == FnvHash.Constants.IF) {
             return SQLType.SCRIPT;
-        } else if (hashCode == FnvHash.Constants.FUNCTION) {
-            if (dbType == DbType.odps) {
-                return SQLType.SCRIPT;
-            }
-        } else if (hashCode == FnvHash.Constants.BEGIN) {
-            if (dbType == DbType.odps || dbType == DbType.oracle) {
-                return SQLType.SCRIPT;
-            }
+        } else if (hashCode == FnvHash.Constants.FUNCTION && dialectFeatureEnabled(ScanSQLTypeWithFunction)) {
+            return SQLType.SCRIPT;
+        } else if (hashCode == FnvHash.Constants.BEGIN && dialectFeatureEnabled(ScanSQLTypeWithBegin)) {
+            return SQLType.SCRIPT;
         } else if (ch == '@') {
             nextToken();
-            if (token == VARIANT && dbType == DbType.odps) {
+            if (token == VARIANT && dialectFeatureEnabled(ScanSQLTypeWithAt)) {
                 nextToken();
 
                 if (token == TABLE) {
@@ -1009,7 +1017,6 @@ public class Lexer {
         if (ch == EOI) {
             return SQLType.EMPTY;
         }
-
         return SQLType.UNKNOWN;
     }
 
@@ -1239,6 +1246,10 @@ public class Lexer {
         return false;
     }
 
+    protected void nextTokenQues() {
+        token = Token.QUES;
+    }
+
     public final void nextToken() {
         startPos = pos;
         bufPos = 0;
@@ -1269,9 +1280,6 @@ public class Lexer {
 
             if (ch == '$') {
                 scanVariable();
-                if (isVariantChar(charAt(pos + 1))) {
-                    scanVariable();
-                }
                 return;
             }
 
@@ -1366,7 +1374,7 @@ public class Lexer {
                         scanChar();
                         token = COLONCOLON;
                     } else {
-                        if (isEnabled(SQLParserFeature.TDDLHint) || dbType == DbType.hive || dbType == DbType.odps || dbType == DbType.spark) {
+                        if (isEnabled(SQLParserFeature.TDDLHint) || dialectFeatureEnabled(NextTokenColon)) {
                             token = COLON;
                             return;
                         }
@@ -1413,28 +1421,7 @@ public class Lexer {
                     return;
                 case '?':
                     scanChar();
-                    if (ch == '?' && DbType.postgresql == dbType) {
-                        scanChar();
-                        if (ch == '|') {
-                            scanChar();
-                            token = Token.QUESQUESBAR;
-                        } else {
-                            token = Token.QUESQUES;
-                        }
-                    } else if (ch == '|' && DbType.postgresql == dbType) {
-                        scanChar();
-                        if (ch == '|') {
-                            unscan();
-                            token = Token.QUES;
-                        } else {
-                            token = Token.QUESBAR;
-                        }
-                    } else if (ch == '&' && DbType.postgresql == dbType) {
-                        scanChar();
-                        token = Token.QUESAMP;
-                    } else {
-                        token = Token.QUES;
-                    }
+                    nextTokenQues();
                     return;
                 case ';':
                     scanChar();
@@ -1512,7 +1499,7 @@ public class Lexer {
                     }
 
                     if (ch == '\\' && charAt(pos + 1) == 'N'
-                            && DbType.mysql == dbType) {
+                            && dialectFeatureEnabled(NextTokenPrefixN)) {
                         scanChar();
                         scanChar();
                         token = Token.NULL;
@@ -1538,7 +1525,7 @@ public class Lexer {
         token = LBRACKET;
     }
 
-    private final void scanOperator() {
+    private void scanOperator() {
         switch (ch) {
             case '+':
                 scanChar();
@@ -1874,64 +1861,7 @@ public class Lexer {
                     hasSpecial = true;
                 }
 
-                switch (ch) {
-                    case '0':
-                        putChar('\0');
-                        break;
-                    case '\'':
-                        putChar('\'');
-                        break;
-                    case '"':
-                        putChar('"');
-                        break;
-                    case 'b':
-                        putChar('\b');
-                        break;
-                    case 'n':
-                        putChar('\n');
-                        break;
-                    case 'r':
-                        putChar('\r');
-                        break;
-                    case 't':
-                        putChar('\t');
-                        break;
-                    case '\\':
-                        putChar('\\');
-                        break;
-                    case 'Z':
-                        putChar((char) 0x1A); // ctrl + Z
-                        break;
-                    case '%':
-                        if (dbType == DbType.mysql) {
-                            putChar('\\');
-                        }
-                        putChar('%');
-                        break;
-                    case '_':
-                        if (dbType == DbType.mysql) {
-                            putChar('\\');
-                        }
-                        putChar('_');
-                        break;
-                    case 'u':
-                        if ((features & SQLParserFeature.SupportUnicodeCodePoint.mask) != 0) {
-                            char c1 = charAt(++pos);
-                            char c2 = charAt(++pos);
-                            char c3 = charAt(++pos);
-                            char c4 = charAt(++pos);
-
-                            int intVal = Integer.parseInt(new String(new char[]{c1, c2, c3, c4}), 16);
-
-                            putChar((char) intVal);
-                        } else {
-                            putChar(ch);
-                        }
-                        break;
-                    default:
-                        putChar(ch);
-                        break;
-                }
+                scanString2PutEscapedChar(ch, true);
 
                 continue;
             }
@@ -2052,50 +1982,7 @@ public class Lexer {
                     hasSpecial = true;
                 }
 
-                switch (ch) {
-                    case '0':
-                        putChar('\0');
-                        break;
-                    case '\'':
-                        putChar('\'');
-                        break;
-                    case '"':
-                        putChar('"');
-                        break;
-                    case 'b':
-                        putChar('\b');
-                        break;
-                    case 'n':
-                        putChar('\n');
-                        break;
-                    case 'r':
-                        putChar('\r');
-                        break;
-                    case 't':
-                        putChar('\t');
-                        break;
-                    case '\\':
-                        putChar('\\');
-                        break;
-                    case 'Z':
-                        putChar((char) 0x1A); // ctrl + Z
-                        break;
-                    case '%':
-                        if (dbType == DbType.mysql) {
-                            putChar('\\');
-                        }
-                        putChar('%');
-                        break;
-                    case '_':
-                        if (dbType == DbType.mysql) {
-                            putChar('\\');
-                        }
-                        putChar('_');
-                        break;
-                    default:
-                        putChar(ch);
-                        break;
-                }
+                scanString2PutEscapedChar(ch, false);
 
                 continue;
             }
@@ -2137,7 +2024,66 @@ public class Lexer {
         }
     }
 
-    protected final void scanAlias() {
+    private void scanString2PutEscapedChar(char escaped, boolean supportUnicodeCodePoint) {
+        switch (escaped) {
+            case '0':
+                putChar('\0');
+                return;
+            case '\'':
+                putChar('\'');
+                return;
+            case '"':
+                putChar('"');
+                return;
+            case 'b':
+                putChar('\b');
+                return;
+            case 'n':
+                putChar('\n');
+                return;
+            case 'r':
+                putChar('\r');
+                return;
+            case 't':
+                putChar('\t');
+                return;
+            case '\\':
+                putChar('\\');
+                return;
+            case 'Z':
+                putChar((char) 0x1A); // ctrl + Z
+                return;
+            case '%':
+                if (dialectFeatureEnabled(ScanStringDoubleBackslash)) {
+                    putChar('\\');
+                }
+                putChar('%');
+                return;
+            case '_':
+                if (dialectFeatureEnabled(ScanStringDoubleBackslash)) {
+                    putChar('\\');
+                }
+                putChar('_');
+                return;
+            case 'u':
+                if (supportUnicodeCodePoint
+                        && (features & SQLParserFeature.SupportUnicodeCodePoint.mask) != 0) {
+                    char c1 = charAt(++pos);
+                    char c2 = charAt(++pos);
+                    char c3 = charAt(++pos);
+                    char c4 = charAt(++pos);
+                    int intVal = Integer.parseInt(new String(new char[]{c1, c2, c3, c4}), 16);
+                    putChar((char) intVal);
+                    return;
+                }
+                putChar(escaped);
+                return;
+            default:
+                putChar(escaped);
+        }
+    }
+
+    protected void scanAlias() {
         final char quote = ch;
         {
             boolean hasSpecial = false;
@@ -2237,7 +2183,7 @@ public class Lexer {
                         putChar((char) 0x1A); // ctrl + Z
                         break;
                     case 'u':
-                        if (dbType == DbType.hive) {
+                        if (dialectFeatureEnabled(ScanAliasU)) {
                             char c1 = charAt(++pos);
                             char c2 = charAt(++pos);
                             char c3 = charAt(++pos);
@@ -2289,16 +2235,15 @@ public class Lexer {
     }
 
     public void scanVariable() {
-        if (ch != ':' && ch != '#' && ch != '$' && !(ch == '@' && dbType == DbType.odps)) {
+        if (ch != ':' && ch != '#' && ch != '$' && !(ch == '@' && dialectFeatureEnabled(ScanVariableAt))) {
             throw new ParserException("illegal variable. " + info());
         }
-
         mark = pos;
         bufPos = 1;
         char ch;
 
         final char c1 = charAt(pos + 1);
-        if (c1 == '>' && DbType.postgresql == dbType) {
+        if (c1 == '>' && dialectFeatureEnabled(ScanVariableGreaterThan)) {
             pos += 2;
             token = Token.MONKEYS_AT_GT;
             this.ch = charAt(++pos);
@@ -2337,7 +2282,7 @@ public class Lexer {
                     if (isWhitespace(ch)) {
                         pos--;
                         break;
-                    } else if (ch == ',' || ch == ')' || ch == '(' || ch == ';') {
+                    } else if (ch == ',' || ch == ')' || ch == '(') {
                         pos--;
                         break;
                     }
@@ -2355,7 +2300,7 @@ public class Lexer {
             char endChar = ch;
             this.ch = charAt(pos);
 
-            if (dbType == DbType.odps && !isWhitespace(endChar)) {
+            if (dialectFeatureEnabled(ScanVariableMoveToSemi) && !isWhitespace(endChar)) {
                 while (isIdentifierChar(this.ch) && ch != ';' && ch != '；') {
                     ++pos;
                     bufPos++;
@@ -2389,7 +2334,7 @@ public class Lexer {
 
             this.ch = charAt(pos);
 
-            if (dbType == DbType.odps) {
+            if (dialectFeatureEnabled(ScanVariableSkipIdentifiers)) {
                 while (isIdentifierChar(this.ch)) {
                     ++pos;
                     bufPos++;
@@ -2467,151 +2412,6 @@ public class Lexer {
         }
     }
 
-    protected final void scanHiveComment() {
-        if (ch != '/' && ch != '-') {
-            throw new IllegalStateException();
-        }
-
-        Token lastToken = this.token;
-
-        mark = pos;
-        bufPos = 0;
-        scanChar();
-
-        if (ch == ' ') {
-            mark = pos;
-            bufPos = 0;
-            scanChar();
-
-            if (dbType == DbType.odps && ch == ' ') {
-                mark = pos;
-                bufPos = 0;
-                scanChar();
-            }
-        }
-
-        // /*+ */
-        if (ch == '*') {
-            scanChar();
-            bufPos++;
-
-            while (ch == ' ') {
-                scanChar();
-                bufPos++;
-            }
-
-            boolean isHint = false;
-            int startHintSp = bufPos + 1;
-            if (ch == '+') {
-                isHint = true;
-                scanChar();
-                bufPos++;
-            }
-
-            for (; ; ) {
-                if (ch == '*') {
-                    if (charAt(pos + 1) == '/') {
-                        bufPos += 2;
-                        scanChar();
-                        scanChar();
-                        break;
-                    } else if (isWhitespace(charAt(pos + 1))) {
-                        int i = 2;
-                        for (; i < 1024 * 1024; ++i) {
-                            if (!isWhitespace(charAt(pos + i))) {
-                                break;
-                            }
-                        }
-                        if (charAt(pos + i) == '/') {
-                            bufPos += 2;
-                            pos += (i + 1);
-                            ch = charAt(pos);
-                            break;
-                        }
-                    }
-                }
-
-                scanChar();
-                if (ch == EOI) {
-                    break;
-                }
-                bufPos++;
-            }
-
-            if (isHint) {
-                stringVal = subString(mark + startHintSp, (bufPos - startHintSp) - 1);
-                token = Token.HINT;
-            } else {
-                stringVal = subString(mark, bufPos + 1);
-                token = Token.MULTI_LINE_COMMENT;
-                commentCount++;
-                if (keepComments) {
-                    addComment(stringVal);
-                }
-            }
-
-            if (commentHandler != null && commentHandler.handle(lastToken, stringVal)) {
-                return;
-            }
-
-            if (token != Token.HINT && !isAllowComment()) {
-                throw new NotAllowCommentException();
-            }
-
-            return;
-        }
-
-        if (!isAllowComment()) {
-            throw new NotAllowCommentException();
-        }
-
-        if (ch == '/' || ch == '-') {
-            scanChar();
-            bufPos++;
-
-            for (; ; ) {
-                if (ch == '\r') {
-                    if (charAt(pos + 1) == '\n') {
-                        line++;
-                        bufPos += 2;
-                        scanChar();
-                        break;
-                    }
-                    bufPos++;
-                    break;
-                } else if (ch == EOI) {
-                    if (pos >= text.length()) {
-                        break;
-                    }
-                }
-
-                if (ch == '\n') {
-                    line++;
-                    scanChar();
-                    bufPos++;
-                    break;
-                }
-
-                scanChar();
-                bufPos++;
-            }
-
-            stringVal = subString(mark, ch != EOI ? bufPos : bufPos + 1);
-            token = Token.LINE_COMMENT;
-            commentCount++;
-            if (keepComments) {
-                addComment(stringVal);
-            }
-            endOfComment = isEOF();
-
-            if (commentHandler != null && commentHandler.handle(lastToken, stringVal)) {
-                return;
-            }
-
-            return;
-        }
-    }
-
     public List<String> scanLineArgument() {
         List<String> args = new ArrayList<>();
         while (ch == ' ') {
@@ -2664,7 +2464,7 @@ public class Lexer {
         return args;
     }
 
-    private void scanMultiLineComment() {
+    protected void scanMultiLineComment() {
         Token lastToken = this.token;
         int depth = 1;
 
@@ -2677,17 +2477,25 @@ public class Lexer {
             if (ch == '/' && charAt(pos + 1) == '*') {
                 scanChar();
                 scanChar();
-                if (ch == '!' || ch == '+') {
-                    scanChar();
-                    ++depth;
-                }
+                ++depth;
             }
 
             if (ch == '*' && charAt(pos + 1) == '/') {
-                scanChar();
-                scanChar();
-                if (0 == --depth) {
-                    break;
+                int curPos = pos;
+                boolean terminated = true;
+                // If '*/' has leading '--' in the same line, just skip it. For example '-- xxxx */'.
+                while (curPos > 0 && charAt(curPos) != '\n') {
+                    if (charAt(curPos) == '-' && (curPos + 1) < text.length() && charAt(curPos + 1) == '-') {
+                        terminated = false;
+                    }
+                    curPos--;
+                }
+                if (terminated) {
+                    scanChar();
+                    scanChar();
+                    if (0 == --depth) {
+                        break;
+                    }
                 }
             }
 
@@ -2699,7 +2507,7 @@ public class Lexer {
             bufPos++;
         }
 
-        stringVal = subString(mark, bufPos);
+        stringVal = subString(mark - 2, bufPos + 4);
         token = Token.MULTI_LINE_COMMENT;
         commentCount++;
         if (keepComments) {
@@ -2715,7 +2523,7 @@ public class Lexer {
         }
     }
 
-    private void scanSingleLineComment() {
+    protected void scanSingleLineComment() {
         Token lastToken = this.token;
 
         mark = pos;
@@ -2820,12 +2628,167 @@ public class Lexer {
         mark = pos;
         bufPos = 1;
         char ch = 0;
+        boolean hasLeftBrace = false;
         for (; ; ) {
             char c0 = ch;
             ch = charAt(++pos);
 
             if (!isIdentifierChar(ch)) {
-                if ((ch == '（' || ch == '）') && c0 > 256) {
+                if (((ch == '（' || ch == '）') && c0 > 256) || ch == '$') {
+                    bufPos++;
+                    continue;
+                } else if (ch == '{' && c0 == '$') {
+                    hasLeftBrace = true;
+                    bufPos++;
+                    continue;
+                } else if (ch == '}' && hasLeftBrace) {
+                    hasLeftBrace = false;
+                    bufPos++;
+                    continue;
+                } else if (ch == '-'
+                        && isIdentifierChar(charAt(pos + 1))
+                        && dialectFeatureEnabled(ScanSubAsIdentifier)) {
+                    hash ^= ch;
+                    hash *= 0x100000001b3L;
+
+                    hashLCase ^= ch;
+                    hashLCase *= 0x100000001b3L;
+
+                    bufPos++;
+                    continue;
+                }
+                break;
+            }
+
+            hashLCase ^= ((ch >= 'A' && ch <= 'Z') ? (ch + 32) : ch);
+            hashLCase *= 0x100000001b3L;
+
+            hash ^= ch;
+            hash *= 0x100000001b3L;
+
+            bufPos++;
+            continue;
+        }
+
+        this.ch = charAt(pos);
+
+        if (bufPos == 1) {
+            switch (first) {
+                case '（':
+                    token = Token.LPAREN;
+                    return;
+                case '）':
+                    token = Token.RPAREN;
+                    return;
+                default:
+                    break;
+            }
+            token = Token.IDENTIFIER;
+            stringVal = CharTypes.valueOf(first);
+            if (stringVal == null) {
+                stringVal = Character.toString(first);
+            }
+            return;
+        }
+
+        Token tok = keywords.getKeyword(hashLCase);
+        if (tok != null) {
+            token = tok;
+            if (token == Token.IDENTIFIER) {
+                stringVal = SymbolTable.global.addSymbol(text, mark, bufPos, hash);
+            } else {
+                stringVal = null;
+            }
+        } else {
+            token = Token.IDENTIFIER;
+            stringVal = SymbolTable.global.addSymbol(text, mark, bufPos, hash);
+        }
+    }
+
+    protected boolean isFirstIdentifierChar0(char ch) {
+        return CharTypes.letterOrUnderScore(ch);
+    }
+
+    protected void scanIdentifier0() {
+        this.hashLCase = 0;
+        this.hash = 0;
+
+        final char first = ch;
+
+        if (ch == '`') {
+            mark = pos;
+            bufPos = 1;
+            char ch;
+
+            int startPos = pos + 1;
+            int quoteIndex = text.indexOf('`', startPos);
+            if (quoteIndex == -1) {
+                throw new ParserException("illegal identifier. " + info());
+            }
+
+            hashLCase = 0xcbf29ce484222325L;
+            hash = 0xcbf29ce484222325L;
+
+            for (int i = startPos; i < quoteIndex; ++i) {
+                ch = text.charAt(i);
+
+                hashLCase ^= ((ch >= 'A' && ch <= 'Z') ? (ch + 32) : ch);
+                hashLCase *= 0x100000001b3L;
+
+                hash ^= ch;
+                hash *= 0x100000001b3L;
+            }
+
+            stringVal = MySqlLexer.quoteTable.addSymbol(text, pos, quoteIndex + 1 - pos, hash);
+            //stringVal = text.substring(mark, pos);
+            pos = quoteIndex + 1;
+            this.ch = charAt(pos);
+            token = Token.IDENTIFIER;
+            return;
+        }
+
+        if (!isFirstIdentifierChar0(first)) {
+            throw new ParserException("illegal identifier. " + info());
+        }
+
+        hashLCase = 0xcbf29ce484222325L;
+        hash = 0xcbf29ce484222325L;
+
+        hashLCase ^= ((ch >= 'A' && ch <= 'Z') ? (ch + 32) : ch);
+        hashLCase *= 0x100000001b3L;
+
+        hash ^= ch;
+        hash *= 0x100000001b3L;
+
+        mark = pos;
+        bufPos = 1;
+        char ch = 0;
+        boolean hasLeftBrace = false;
+        for (; ; ) {
+            char c0 = ch;
+            ch = charAt(++pos);
+
+            if (!isIdentifierChar(ch)) {
+                if (((ch == '（' || ch == '）') && c0 > 256) || ch == '$') {
+                    bufPos++;
+                    continue;
+                } else if (ch == '{' && c0 == '$') {
+                    hasLeftBrace = true;
+                    bufPos++;
+                    continue;
+                } else if (ch == '}' && hasLeftBrace) {
+                    hasLeftBrace = false;
+                    bufPos++;
+                    continue;
+                } else if (ch == '-'
+                        && isIdentifierChar(charAt(pos + 1))
+                        && dialectFeatureEnabled(ScanSubAsIdentifier)) {
+                    hash ^= ch;
+                    hash *= 0x100000001b3L;
+
+                    hashLCase ^= ch;
+                    hashLCase *= 0x100000001b3L;
+
                     bufPos++;
                     continue;
                 }
@@ -2883,7 +2846,7 @@ public class Lexer {
         numberExp = false;
         bufPos = 0;
 
-        if (ch == '0' && charAt(pos + 1) == 'b' && dbType != DbType.odps) {
+        if (ch == '0' && charAt(pos + 1) == 'b' && dialectFeatureEnabled(ScanNumberPrefixB)) {
             int i = 2;
             int mark = pos + 2;
             for (; ; ++i) {
@@ -2983,7 +2946,8 @@ public class Lexer {
         if (ch != '`') {
             if (isFirstIdentifierChar(ch)
                     && ch != '）'
-                    && !(ch == 'b' && bufPos == 1 && charAt(pos - 1) == '0' && dbType != DbType.odps)
+                    && !(ch == 'b' && bufPos == 1 && charAt(pos - 1) == '0' && dialectFeatureEnabled(
+                    ScanNumberCommonProcess))
             ) {
                 bufPos++;
                 boolean brace = false;
@@ -3521,5 +3485,9 @@ public class Lexer {
 
     public String getSource() {
         return text;
+    }
+
+    protected boolean dialectFeatureEnabled(DialectFeature.LexerFeature feature) {
+        return dialectFeature.isEnabled(feature);
     }
 }

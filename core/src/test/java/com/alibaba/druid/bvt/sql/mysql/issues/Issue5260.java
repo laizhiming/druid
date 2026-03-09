@@ -1,7 +1,5 @@
 package com.alibaba.druid.bvt.sql.mysql.issues;
 
-import java.util.Map;
-
 import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
@@ -10,8 +8,9 @@ import com.alibaba.druid.sql.parser.SQLStatementParser;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
 import com.alibaba.druid.stat.TableStat.Name;
-
 import org.junit.Test;
+
+import java.util.Map;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -24,7 +23,6 @@ import static org.junit.Assert.assertTrue;
  * @see <a href="https://dev.mysql.com/doc/refman/8.0/en/join.html">MySQL join语法</a>
  */
 public class Issue5260 {
-
     @Test
     public void test_natural_join() throws Exception {
         for (DbType dbType : new DbType[]{DbType.mysql, DbType.oracle}) {
@@ -43,7 +41,7 @@ public class Issue5260 {
                 System.out.println(dbType + "生成的sql归一化===" + Issue5421.normalizeSql(newSql));
                 parser = SQLParserUtils.createSQLStatementParser(newSql, dbType);
                 statement = parser.parseStatement();
-                String sqlNew2 = Issue5421.normalizeSql(statement.toString() + ";");
+                String sqlNew2 = Issue5421.normalizeSql(statement.toString());
                 System.out.println(dbType + "再次解析对象得到sql===" + sqlNew2);
                 System.out.println(dbType + "最原始的实际得到sql===" + Issue5421.normalizeSql(sql));
                 assertTrue(Issue5421.normalizeSql(sql).equalsIgnoreCase(sqlNew2));

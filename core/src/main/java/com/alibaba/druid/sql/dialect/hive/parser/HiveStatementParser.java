@@ -25,8 +25,11 @@ import com.alibaba.druid.sql.dialect.hive.ast.HiveMultiInsertStatement;
 import com.alibaba.druid.sql.dialect.hive.stmt.HiveLoadDataStatement;
 import com.alibaba.druid.sql.parser.*;
 import com.alibaba.druid.util.FnvHash;
+import com.alibaba.druid.util.FnvHash.Constants;
 
 import java.util.List;
+
+import static com.alibaba.druid.sql.parser.Token.LPAREN;
 
 public class HiveStatementParser extends SQLStatementParser {
     {
@@ -49,7 +52,7 @@ public class HiveStatementParser extends SQLStatementParser {
         super(exprParser);
     }
 
-    public HiveSelectParser createSQLSelectParser() {
+    public SQLSelectParser createSQLSelectParser() {
         return new HiveSelectParser(this.exprParser, selectListCache);
     }
 
@@ -234,7 +237,8 @@ public class HiveStatementParser extends SQLStatementParser {
                 return true;
             }
 
-            if (lexer.identifierEquals(FnvHash.Constants.DATABASES)) {
+            if (lexer.identifierEquals(FnvHash.Constants.DATABASES)
+                    || lexer.identifierEquals(Constants.SCHEMAS)) {
                 lexer.nextToken();
 
                 SQLShowDatabasesStatement stmt = parseShowDatabases(false);
@@ -335,6 +339,20 @@ public class HiveStatementParser extends SQLStatementParser {
                 return true;
             }
 
+            if (lexer.identifierEquals(FnvHash.Constants.FUNCTIONS)) {
+                lexer.nextToken();
+
+                SQLShowFunctionsStatement stmt = new SQLShowFunctionsStatement();
+                if (lexer.token() == Token.LIKE) {
+                    lexer.nextToken();
+                    SQLExpr like = this.exprParser.expr();
+                    stmt.setLike(like);
+                }
+
+                statementList.add(stmt);
+                return true;
+            }
+
             throw new ParserException("TODO " + lexer.info());
         }
 
@@ -376,7 +394,7 @@ public class HiveStatementParser extends SQLStatementParser {
     }
 
     public SQLCreateTableStatement parseCreateTable() {
-        SQLCreateTableParser parser = new HiveCreateTableParser(this.exprParser);
+        SQLCreateTableParser parser = getSQLCreateTableParser();
         return parser.parseCreateTable();
     }
 
@@ -571,5 +589,56 @@ public class HiveStatementParser extends SQLStatementParser {
     @Override
     public HiveExprParser getExprParser() {
         return (HiveExprParser) exprParser;
+    }
+
+    @Override
+    protected boolean alterTableAfterNameRest(SQLAlterTableStatement stmt) {
+        if (lexer.identifierEquals(Constants.RECOVER)) {
+            lexer.nextToken();
+            acceptIdentifier("PARTITIONS");
+            stmt.addItem(new SQLAlterTableRecoverPartitions());
+        } else {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean alterTableSetRest(SQLAlterTableStatement stmt) {
+        if (lexer.identifierEquals("FILEFORMAT")) {
+            lexer.nextToken();
+            SQLAlterTableSetFileFormat item = new SQLAlterTableSetFileFormat();
+            item.setValue(this.exprParser.primary());
+            stmt.addItem(item);
+        } else {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void parseCreateTableSupportSchema() {
+        if (lexer.token() == Token.SCHEMA) {
+            lexer.nextToken();
+        } else {
+            accept(Token.DATABASE);
+        }
+    }
+
+    @Override
+    protected boolean parseAlterTableAddColumnBefore(SQLAlterTableAddColumn x) {
+        lexer.nextIfIdentifier("COLUMNS");
+
+        if (lexer.nextIf(Token.IF)) {
+            accept(Token.NOT);
+            accept(Token.EXISTS);
+            x.setIfNotExists(true);
+        }
+
+        if (lexer.token() == LPAREN) {
+            lexer.nextToken();
+            return true;
+        }
+        return false;
     }
 }

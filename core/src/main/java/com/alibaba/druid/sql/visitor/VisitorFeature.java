@@ -39,7 +39,9 @@ public enum VisitorFeature {
     OutputKeepParenthesisWhenNotExpr,
 
     OutputNameQuote,
-    OutputDistributedLiteralInCreateTableStmt;
+    OutputDistributedLiteralInCreateTableStmt,
+    OutputSkipMultilineComment,
+    OutputSkipSingleLineComment;
 
     private VisitorFeature() {
         mask = (1 << ordinal());

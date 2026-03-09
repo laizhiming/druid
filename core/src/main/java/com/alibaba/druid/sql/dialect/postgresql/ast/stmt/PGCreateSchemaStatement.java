@@ -15,23 +15,28 @@
  */
 package com.alibaba.druid.sql.dialect.postgresql.ast.stmt;
 
+import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLStatementImpl;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.statement.SQLCreateStatement;
 import com.alibaba.druid.sql.dialect.postgresql.visitor.PGASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PGCreateSchemaStatement extends SQLStatementImpl implements PGSQLStatement, SQLCreateStatement {
-    private SQLIdentifierExpr schemaName;
+    private SQLName schemaName;
     private SQLIdentifierExpr userName;
     private boolean ifNotExists;
     private boolean authorization;
+    private List<SQLCreateStatement> createStatements = new ArrayList<>();
 
-    public SQLIdentifierExpr getSchemaName() {
+    public SQLName getSchemaName() {
         return schemaName;
     }
 
-    public void setSchemaName(SQLIdentifierExpr schemaName) {
+    public void setSchemaName(SQLName schemaName) {
         this.schemaName = schemaName;
     }
 
@@ -59,8 +64,18 @@ public class PGCreateSchemaStatement extends SQLStatementImpl implements PGSQLSt
         this.authorization = authorization;
     }
 
+    public List<SQLCreateStatement> getCreateStatements() {
+        return createStatements;
+    }
+
+    public void setCreateStatements(List<SQLCreateStatement> createStatements) {
+        this.createStatements = createStatements;
+    }
+
     protected void accept0(SQLASTVisitor visitor) {
-        accept0((PGASTVisitor) visitor);
+        if (visitor instanceof PGASTVisitor) {
+            accept0((PGASTVisitor) visitor);
+        }
     }
 
     @Override
@@ -69,6 +84,13 @@ public class PGCreateSchemaStatement extends SQLStatementImpl implements PGSQLSt
             acceptChild(visitor, this.schemaName);
             acceptChild(visitor, this.userName);
         }
+
+        if (this.createStatements != null && !this.createStatements.isEmpty()) {
+            for (SQLCreateStatement stat : this.createStatements) {
+                acceptChild(visitor, stat);
+            }
+        }
+
         visitor.endVisit(this);
     }
 }

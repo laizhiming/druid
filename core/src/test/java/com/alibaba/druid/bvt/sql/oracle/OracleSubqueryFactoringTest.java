@@ -15,12 +15,10 @@
  */
 package com.alibaba.druid.bvt.sql.oracle;
 
-import org.junit.Assert;
-import junit.framework.TestCase;
-
 import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser;
 import com.alibaba.druid.sql.test.TestUtils;
+import junit.framework.TestCase;
 
 public class OracleSubqueryFactoringTest extends TestCase {
     public void test_interval() throws Exception {
@@ -37,7 +35,7 @@ public class OracleSubqueryFactoringTest extends TestCase {
                 "\t\tFROM employees e, departments d\n" +
                 "\t\tWHERE e.department_id = d.department_id\n" +
                 "\t\tGROUP BY department_name\n" +
-                "\t), \n" +
+                "\t),\n" +
                 "\tavg_cost AS (\n" +
                 "\t\tSELECT SUM(dept_total) / COUNT(*) AS avg\n" +
                 "\t\tFROM dept_costs\n" +
@@ -56,7 +54,5 @@ public class OracleSubqueryFactoringTest extends TestCase {
         String text = TestUtils.outputOracle(stmt);
 
         assertEquals(expected, text);
-
     }
-
 }

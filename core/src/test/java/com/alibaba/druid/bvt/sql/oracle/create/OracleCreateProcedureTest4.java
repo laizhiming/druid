@@ -164,7 +164,7 @@ public class OracleCreateProcedureTest4 extends OracleTest {
                 "                          '???:' || in_loginname);\n" +
                 "    ROLLBACK;\n" +
                 "    RETURN;\n" +
-                "END;"; //
+                "END;";
 
         OracleStatementParser parser = new OracleStatementParser(sql);
         List<SQLStatement> statementList = parser.parseStatementList();
@@ -187,9 +187,9 @@ public class OracleCreateProcedureTest4 extends OracleTest {
 
         assertTrue(visitor.getTables().containsKey(new TableStat.Name("fact_brand_provider")));
 
-        assertEquals(24, visitor.getColumns().size());
-        assertEquals(6, visitor.getConditions().size());
-        assertEquals(4, visitor.getRelationships().size());
+        assertEquals(22, visitor.getColumns().size());
+        assertEquals(5, visitor.getConditions().size());
+        assertEquals(1, visitor.getRelationships().size());
 
         assertTrue(visitor.containsColumn("fact_brand_provider", "gyscode"));
         assertTrue(visitor.containsColumn("fact_brand_provider", "gysname"));

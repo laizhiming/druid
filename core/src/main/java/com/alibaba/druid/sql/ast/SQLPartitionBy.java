@@ -25,9 +25,11 @@ public abstract class SQLPartitionBy extends SQLObjectImpl {
     protected SQLSubPartitionBy subPartitionBy;
     protected SQLExpr partitionsCount;
     protected boolean linear;
-    protected List<SQLPartition> partitions = new ArrayList<SQLPartition>();
+    protected List<SQLPartition> partitions = new ArrayList<>();
     protected List<SQLName> storeIn = new ArrayList<SQLName>();
     protected List<SQLExpr> columns = new ArrayList<SQLExpr>();
+    protected Boolean auto;
+    protected Boolean logical;
 
     protected SQLIntegerExpr lifeCycle;
 
@@ -89,6 +91,22 @@ public abstract class SQLPartitionBy extends SQLObjectImpl {
             column.setParent(this);
         }
         this.columns.add(column);
+    }
+
+    public Boolean getAuto() {
+        return this.auto;
+    }
+
+    public void setAuto(Boolean auto) {
+        this.auto = auto;
+    }
+
+    public Boolean getLogical() {
+        return logical;
+    }
+
+    public void setLogical(Boolean logical) {
+        this.logical = logical;
     }
 
     public void cloneTo(SQLPartitionBy x) {

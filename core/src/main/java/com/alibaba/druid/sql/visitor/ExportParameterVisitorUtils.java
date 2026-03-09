@@ -43,12 +43,14 @@ public final class ExportParameterVisitorUtils {
             case mysql:
             case mariadb:
             case tidb:
+            case polardbx:
                 return new MySqlExportParameterVisitor(out);
             case oracle:
                 return new OracleExportParameterVisitor(out);
             case db2:
                 return new DB2ExportParameterVisitor(out);
             case h2:
+            case lealone:
                 return new MySqlExportParameterVisitor(out);
             case sqlserver:
             case jtds:

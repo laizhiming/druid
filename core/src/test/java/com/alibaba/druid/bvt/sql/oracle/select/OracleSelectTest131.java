@@ -24,7 +24,6 @@ import junit.framework.TestCase;
 
 import java.util.List;
 
-
 public class OracleSelectTest131 extends TestCase {
     public void test_0() throws Exception {
         String sql = "select * from ( select * from ( \n" +
@@ -82,7 +81,7 @@ public class OracleSelectTest131 extends TestCase {
             + "\t\t\t, bbb.memo, bbb.cfjg, bbb.cqcz, bbb.zxqk, bbb.qd\n"
             + "\t\t\t, bbb.qd1, bbb.wfss1, bbb.zs, bbb.zj1, bbb.psignname\n"
             + "\t\t\t, bbb.cbqy_mc, bbb.spsj, bbb.sprxm, bbb.tfsj1, bbb.fr_xm\n"
-            + "\t\t\t, CASE \n"
+            + "\t\t\t, CASE\n"
             + "\t\t\t\tWHEN bbb.tyshxydm = '*' THEN 'xxxxxxxxxxxxxxxxxx'\n"
             + "\t\t\t\tWHEN bbb.tyshxydm = '无' THEN 'xxxxxxxxxxxxxxxxxx'\n"
             + "\t\t\t\tWHEN bbb.tyshxydm = '0' THEN 'xxxxxxxxxxxxxxxxxx'\n"
@@ -101,7 +100,7 @@ public class OracleSelectTest131 extends TestCase {
             + "\t\t\t\t\t\tAND rownum = ?\n"
             + "\t\t\t\t), bb.flyj) AS flyj\n"
             + "\t\t\t\t, bb.aybh, bb.aymc\n"
-            + "\t\t\t\t, CASE \n"
+            + "\t\t\t\t, CASE\n"
             + "\t\t\t\t\tWHEN (bb.jg = '1'\n"
             + "\t\t\t\t\t\tAND bb.fk IS NULL\n"
             + "\t\t\t\t\t\tAND bb.jl IS NULL\n"
@@ -877,7 +876,7 @@ public class OracleSelectTest131 extends TestCase {
             + "\t\t\t, bbb.memo, bbb.cfjg, bbb.cqcz, bbb.zxqk, bbb.qd\n"
             + "\t\t\t, bbb.qd1, bbb.wfss1, bbb.zs, bbb.zj1, bbb.psignname\n"
             + "\t\t\t, bbb.cbqy_mc, bbb.spsj, bbb.sprxm, bbb.tfsj1, bbb.fr_xm\n"
-            + "\t\t\t, case \n"
+            + "\t\t\t, case\n"
             + "\t\t\t\twhen bbb.tyshxydm = '*' then 'xxxxxxxxxxxxxxxxxx'\n"
             + "\t\t\t\twhen bbb.tyshxydm = '无' then 'xxxxxxxxxxxxxxxxxx'\n"
             + "\t\t\t\twhen bbb.tyshxydm = '0' then 'xxxxxxxxxxxxxxxxxx'\n"
@@ -896,7 +895,7 @@ public class OracleSelectTest131 extends TestCase {
             + "\t\t\t\t\t\tand rownum = ?\n"
             + "\t\t\t\t), bb.flyj) as flyj\n"
             + "\t\t\t\t, bb.aybh, bb.aymc\n"
-            + "\t\t\t\t, case \n"
+            + "\t\t\t\t, case\n"
             + "\t\t\t\t\twhen (bb.jg = '1'\n"
             + "\t\t\t\t\t\tand bb.fk is null\n"
             + "\t\t\t\t\t\tand bb.jl is null\n"
@@ -1675,5 +1674,4 @@ public class OracleSelectTest131 extends TestCase {
 
 //        assertTrue(visitor.containsColumn("srm1.CONSIGNEE_ADDRESS", "id"));
     }
-
 }

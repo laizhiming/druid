@@ -462,6 +462,8 @@ public final class JdbcUtils implements JdbcConstants {
             return "com.ingres.jdbc.IngresDriver";
         } else if (rawUrl.startsWith("jdbc:h2:")) {
             return H2_DRIVER;
+        } else if (rawUrl.startsWith("jdbc:lealone:")) {
+            return LEALONE_DRIVER;
         } else if (rawUrl.startsWith("jdbc:mckoi:")) {
             return "com.mckoi.JDBCDriver";
         } else if (rawUrl.startsWith("jdbc:cloudscape:")) {
@@ -526,6 +528,11 @@ public final class JdbcUtils implements JdbcConstants {
         } else if (rawUrl.startsWith("jdbc:inspur:")) {
             return JdbcConstants.KDB_DRIVER;
         } else if (rawUrl.startsWith("jdbc:polardb")) {
+            if (rawUrl.startsWith("jdbc:polardb2:")) {
+                return JdbcConstants.POLARDB2_DRIVER;
+            } else if (rawUrl.startsWith("jdbc:polardbx:")) {
+                return JdbcConstants.POLARDBX_DRIVER;
+            }
             return JdbcConstants.POLARDB_DRIVER;
         } else if (rawUrl.startsWith("jdbc:highgo:")) {
             return "com.highgo.jdbc.Driver";
@@ -541,6 +548,10 @@ public final class JdbcUtils implements JdbcConstants {
             return JdbcConstants.TAOS_DATA_RS;
         } else if (rawUrl.startsWith("jdbc:gbasedbt-sqli:")) {
             return JdbcConstants.GBASE8S_DRIVER;
+        } else if (rawUrl.startsWith("jdbc:sundb:")) {
+            return JdbcConstants.SUNDB_DRIVER;
+        } else if (rawUrl.startsWith("jdbc:gaussdb:")) {
+            return "com.huawei.gaussdb.jdbc.Driver";
         } else {
             throw new SQLException("unknown jdbc driver : " + rawUrl);
         }
@@ -596,6 +607,8 @@ public final class JdbcUtils implements JdbcConstants {
             return DbType.ingres;
         } else if (rawUrl.startsWith("jdbc:h2:") || rawUrl.startsWith("jdbc:log4jdbc:h2:")) {
             return DbType.h2;
+        } else if (rawUrl.startsWith("jdbc:lealone:")) {
+            return DbType.lealone;
         } else if (rawUrl.startsWith("jdbc:mckoi:")) {
             return DbType.mock;
         } else if (rawUrl.startsWith("jdbc:cloudscape:")) {
@@ -651,6 +664,11 @@ public final class JdbcUtils implements JdbcConstants {
         } else if (rawUrl.startsWith("jdbc:inspur:")) {
             return DbType.kdb;
         } else if (rawUrl.startsWith("jdbc:polardb")) {
+            if (rawUrl.startsWith("jdbc:polardb2:")) {
+                return DbType.polardb2;
+            } else if (rawUrl.startsWith("jdbc:polardbx:")) {
+                return DbType.polardbx;
+            }
             return DbType.polardb;
         } else if (rawUrl.startsWith("jdbc:highgo:")) {
             return DbType.highgo;
@@ -660,6 +678,10 @@ public final class JdbcUtils implements JdbcConstants {
             return DbType.gaussdb;
         } else if (rawUrl.startsWith("jdbc:TAOS:") || rawUrl.startsWith("jdbc:TAOS-RS:")) {
             return DbType.taosdata;
+        } else if (rawUrl.startsWith("jdbc:oscar:")) {
+            return DbType.oscar;
+        } else if (rawUrl.startsWith("jdbc:sundb:")) {
+            return DbType.sundb;
         } else {
             return null;
         }
@@ -858,7 +880,7 @@ public final class JdbcUtils implements JdbcConstants {
         StringBuilder sql = new StringBuilder() //
                 .append("insert into ") //
                 .append(tableName) //
-                .append("("); //
+                .append("(");
 
         int nameCount = 0;
         for (String name : names) {
@@ -918,7 +940,7 @@ public final class JdbcUtils implements JdbcConstants {
             return OracleUtils.showTables(conn);
         }
 
-        if (dbType == DbType.postgresql) {
+        if (dbType == DbType.postgresql || dbType == DbType.polardb2) {
             return PGUtils.showTables(conn);
         }
         throw new SQLException("show tables dbType not support for " + dbType);
@@ -980,7 +1002,9 @@ public final class JdbcUtils implements JdbcConstants {
             case mariadb:
             case tidb:
             case h2:
+            case lealone:
             case goldendb:
+            case polardbx:
                 return true;
             default:
                 return false;
@@ -1004,6 +1028,7 @@ public final class JdbcUtils implements JdbcConstants {
             case polardb:
             case greenplum:
             case gaussdb:
+            case hologres:
                 return true;
             default:
                 return false;

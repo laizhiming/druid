@@ -20,6 +20,7 @@ import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.*;
 import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
 import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
@@ -59,7 +60,7 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
     protected Identity identity;
 
     // for ads
-    protected SQLExpr generatedAlawsAs;
+    protected SQLExpr generatedAlwaysAs;
     protected SQLExpr delimiter; // for ads
     protected SQLExpr delimiterTokenizer; // for ads3.0 multivalue
     protected SQLExpr nlpTokenizer; // for ads3.0 multivalue
@@ -70,8 +71,8 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
     private SQLExpr unitCount;
     private SQLExpr unitIndex;
     private SQLExpr step;
-    private SQLCharExpr encode;
-    private SQLCharExpr compression;
+    private SQLExpr encode;
+    private SQLExpr compression;
     protected SQLCharExpr aggType; // for starrocks
     protected SQLCharExpr bitmap; // for starrocks
     protected SQLCharExpr indexComment; // for starrocks
@@ -79,6 +80,10 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
     // for aliyun data lake anlytics
     private List<SQLAssignItem> mappedBy;
     private List<SQLAssignItem> colProperties;
+
+    protected SQLIntegerExpr blockSize; // for impala for kudu
+
+    private boolean generateByDefault;
 
     public SQLCharExpr getIndexComment() {
         return indexComment;
@@ -109,6 +114,11 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
 
     public SQLColumnDefinition(SQLName name) {
         this.setName(name);
+    }
+
+    public SQLColumnDefinition(String name, SQLDataType dataType) {
+        setName(name);
+        setDataType(dataType);
     }
 
     public Identity getIdentity() {
@@ -431,7 +441,15 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
         this.unitCount = unitCount;
     }
 
-    public static class Identity extends SQLObjectImpl {
+    public boolean isGenerateByDefault() {
+        return generateByDefault;
+    }
+
+    public void setGenerateByDefault(boolean generateByDefault) {
+        this.generateByDefault = generateByDefault;
+    }
+
+    public static class Identity extends SQLObjectImpl implements SQLExpr{
         private Integer seed;
         private Integer increment;
 
@@ -507,6 +525,11 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
             x.maxValue = maxValue;
             x.notForReplication = notForReplication;
             return x;
+        }
+
+        @Override
+        public List<SQLObject> getChildren() {
+            return null;
         }
     }
 
@@ -671,14 +694,14 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
     }
 
     public SQLExpr getGeneratedAlwaysAs() {
-        return generatedAlawsAs;
+        return generatedAlwaysAs;
     }
 
-    public void setGeneratedAlawsAs(SQLExpr x) {
+    public void setGeneratedAlwaysAs(SQLExpr x) {
         if (x != null) {
             x.setParent(this);
         }
-        this.generatedAlawsAs = x;
+        this.generatedAlwaysAs = x;
     }
 
     public boolean isVisible() {
@@ -837,20 +860,28 @@ public class SQLColumnDefinition extends SQLObjectImpl implements SQLTableElemen
         return colProperties;
     }
 
-    public SQLCharExpr getEncode() {
+    public SQLExpr getEncode() {
         return encode;
     }
 
-    public void setEncode(SQLCharExpr encode) {
+    public void setEncode(SQLExpr encode) {
         this.encode = encode;
     }
 
-    public SQLCharExpr getCompression() {
+    public SQLExpr getCompression() {
         return compression;
     }
 
-    public void setCompression(SQLCharExpr compression) {
+    public void setCompression(SQLExpr compression) {
         this.compression = compression;
+    }
+
+    public void setBlockSize(SQLIntegerExpr blockSize) {
+        this.blockSize = blockSize;
+    }
+
+    public SQLIntegerExpr getBlockSize() {
+        return blockSize;
     }
 
     public List<SQLAssignItem> getColPropertiesDirect() {

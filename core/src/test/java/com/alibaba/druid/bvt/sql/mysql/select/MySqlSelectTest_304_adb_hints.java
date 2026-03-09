@@ -282,7 +282,6 @@ public class MySqlSelectTest_304_adb_hints
                 "LIMIT 100", stmt.toString());
     }
 
-
     public void test_13() throws Exception {
         String sql = "SELECT COUNT(*)\n" +
                 "FROM t1, t2\n" +
@@ -546,7 +545,7 @@ public class MySqlSelectTest_304_adb_hints
                 SQLParserFeature.EnableMultiUnion);
 
         assertEquals("SELECT o_year\n" +
-                "\t, sum(CASE \n" +
+                "\t, sum(CASE\n" +
                 "\t\tWHEN nation = 'BRAZIL' THEN volume\n" +
                 "\t\tELSE 0\n" +
                 "\tEND) / sum(volume) AS mkt_share\n" +

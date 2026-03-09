@@ -24,18 +24,18 @@ import com.alibaba.druid.sql.dialect.mysql.ast.MySqlPrimaryKey;
 import com.alibaba.druid.sql.dialect.mysql.ast.MySqlUnique;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlTableIndex;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateSynonymStatement;
+import com.alibaba.druid.sql.parser.ParserException;
 import com.alibaba.druid.sql.parser.SQLParserUtils;
-import com.alibaba.druid.sql.semantic.SemanticException;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
 import com.alibaba.druid.util.ListDG;
 import com.alibaba.druid.util.lang.Consumer;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLStatement, SQLCreateStatement {
-    protected boolean ifNotExists;
-    protected Type type;
+    protected int features;
     protected SQLExprTableSource tableSource;
     protected List<SQLTableElement> tableElementList = new ArrayList<SQLTableElement>();
 
@@ -49,16 +49,18 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     protected Boolean logging;
 
     protected SQLName tablespace;
-    protected SQLPartitionBy partitioning;
+    protected SQLPartitionBy partitionBy;
     protected SQLPartitionOf partitionOf;
     protected SQLPartitionBy localPartitioning;
+    protected SQLUnique unique;
     protected SQLExpr storedAs;
     protected SQLExpr storedBy;
     protected SQLExpr location;
+    protected SQLExpr engine;
+    protected SQLOrderBy orderBy;
 
     protected boolean onCommitPreserveRows;
     protected boolean onCommitDeleteRows;
-    protected boolean external;
 
     // for odps & hive
     protected SQLExternalRecordFormat rowFormat;
@@ -66,6 +68,7 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     protected ClusteringType clusteringType;
     protected final List<SQLSelectOrderByItem> clusteredBy = new ArrayList<SQLSelectOrderByItem>();
     protected final List<SQLSelectOrderByItem> sortedBy = new ArrayList<SQLSelectOrderByItem>();
+    protected boolean isAutoBucket;
     protected int buckets;
     protected int shards;
     protected final List<SQLAssignItem> tableOptions = new ArrayList<SQLAssignItem>();
@@ -74,16 +77,16 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     protected boolean replace;
     protected boolean ignore;
     protected boolean single; // polardbx
-    protected boolean dimension;
-    protected SQLExpr engine;
 
     protected SQLExpr lifeCycle;
 
     public SQLCreateTableStatement() {
+        isAutoBucket = false;
     }
 
     public SQLCreateTableStatement(DbType dbType) {
         super(dbType);
+        isAutoBucket = false;
     }
 
     @Override
@@ -103,11 +106,12 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         this.acceptChild(v, like);
 
         this.acceptChild(v, tablespace);
-        this.acceptChild(v, partitioning);
+        this.acceptChild(v, partitionBy);
         this.acceptChild(v, localPartitioning);
         this.acceptChild(v, storedAs);
         this.acceptChild(v, storedBy);
         this.acceptChild(v, location);
+        this.acceptChild(v, unique);
 
         this.acceptChild(v, partitionColumns);
         this.acceptChild(v, clusteredBy);
@@ -115,6 +119,35 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         this.acceptChild(v, tableOptions);
 //        this.acceptChild(v, tblProperties);
         this.acceptChild(v, lifeCycle);
+    }
+
+    public boolean isAutoBucket() {
+        return isAutoBucket;
+    }
+
+    public void setAutoBucket(boolean autoBucket) {
+        isAutoBucket = autoBucket;
+    }
+    public SQLExpr getEngine() {
+        return engine;
+    }
+
+    public void setEngine(SQLExpr x) {
+        if (x != null) {
+            x.setParent(this);
+        }
+        this.engine = x;
+    }
+
+    public SQLOrderBy getOrderBy() {
+        return orderBy;
+    }
+
+    public void setOrderBy(SQLOrderBy orderBy) {
+        if (orderBy != null) {
+            orderBy.setParent(this);
+        }
+        this.orderBy = orderBy;
     }
 
     public SQLExpr getComment() {
@@ -188,16 +221,24 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         setTableSource(new SQLExprTableSource(name));
     }
 
-    public Type getType() {
-        return type;
+    public void config(Feature feature) {
+        config(feature, true);
     }
 
-    public void setType(Type type) {
-        this.type = type;
+    public boolean isEnabled(Feature feature) {
+        return feature.isEnabled(this.features);
     }
 
-    public static enum Type {
-        GLOBAL_TEMPORARY, LOCAL_TEMPORARY, TEMPORARY, SHADOW, TRANSACTIONAL
+    public void config(Feature feature, boolean state) {
+        this.features = feature.config(this.features, state);
+    }
+
+    public boolean isTemporary() {
+        return Feature.Temporary.isEnabled(features);
+    }
+
+    public void setTemporary(boolean value) {
+        this.features = Feature.Temporary.config(features, value);
     }
 
     public List<SQLTableElement> getTableElementList() {
@@ -272,6 +313,10 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         addColumn(column);
     }
 
+    public void addColumn(String name, SQLDataType dataType) {
+        addColumn(new SQLColumnDefinition(name, dataType));
+    }
+
     public void addColumn(SQLColumnDefinition column) {
         if (column == null) {
             throw new IllegalArgumentException();
@@ -281,11 +326,11 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     }
 
     public boolean isIfNotExists() {
-        return ifNotExists;
+        return Feature.IfNotExists.isEnabled(features);
     }
 
-    public void setIfNotExiists(boolean ifNotExists) {
-        this.ifNotExists = ifNotExists;
+    public void setIfNotExists(boolean value) {
+        this.features = Feature.IfNotExists.config(this.features, value);
     }
 
     public SQLExprTableSource getInherits() {
@@ -308,6 +353,17 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
             select.setParent(this);
         }
         this.select = select;
+    }
+
+    public SQLUnique getUnique() {
+        return unique;
+    }
+
+    public void setUnique(SQLUnique unique) {
+        if (unique != null) {
+            unique.setParent(this);
+        }
+        this.unique = unique;
     }
 
     public SQLExprTableSource getLike() {
@@ -353,19 +409,19 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     }
 
     public SQLPartitionBy getPartitioning() {
-        return partitioning;
+        return partitionBy;
     }
 
     public SQLPartitionBy getLocalPartitioning() {
         return this.localPartitioning;
     }
 
-    public void setPartitioning(SQLPartitionBy partitioning) {
-        if (partitioning != null) {
-            partitioning.setParent(this);
+    public void setPartitionBy(SQLPartitionBy partitionBy) {
+        if (partitionBy != null) {
+            partitionBy.setParent(this);
         }
 
-        this.partitioning = partitioning;
+        this.partitionBy = partitionBy;
     }
 
     public SQLPartitionOf getPartitionOf() {
@@ -444,6 +500,10 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         }
 
         return null;
+    }
+
+    public boolean containsColumn(String columName) {
+        return findColumn(columName) == null;
     }
 
     public SQLColumnDefinition findColumn(String columName) {
@@ -968,6 +1028,8 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
 
         } else if (item instanceof SQLAlterTableAddIndex) {
             return apply((SQLAlterTableAddIndex) item);
+        } else if (item instanceof SQLAlterTableTruncatePartition) {
+            return apply((SQLAlterTableTruncatePartition) item);
         }
 
         return false;
@@ -1152,6 +1214,9 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         return true;
     }
 
+    protected boolean apply(SQLAlterTableTruncatePartition item) {
+        return false;
+    }
     protected boolean apply(SQLAlterTableAddIndex item) {
         return false;
     }
@@ -1218,9 +1283,7 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     }
 
     public void cloneTo(SQLCreateTableStatement x) {
-        x.setExternal(external);
-        x.ifNotExists = ifNotExists;
-        x.type = type;
+        x.features = features;
 
         if (tableSource != null) {
             x.setTableSource(tableSource.clone());
@@ -1250,8 +1313,8 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
             x.setComment(comment.clone());
         }
 
-        if (partitioning != null) {
-            x.setPartitioning(partitioning.clone());
+        if (partitionBy != null) {
+            x.setPartitionBy(partitionBy.clone());
         }
 
         if (like != null) {
@@ -1265,8 +1328,8 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
             x.setTablespace(tablespace.clone());
         }
 
-        if (partitioning != null) {
-            x.setPartitioning(partitioning.clone());
+        if (partitionBy != null) {
+            x.setPartitionBy(partitionBy.clone());
         }
 
         if (localPartitioning != null) {
@@ -1325,7 +1388,7 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
 
         x.buckets = buckets;
         x.shards = shards;
-        x.dimension = dimension;
+        x.afterSemi = afterSemi;
 
     }
 
@@ -1397,11 +1460,11 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
 
     // for odps & hive
     public boolean isExternal() {
-        return external;
+        return Feature.External.isEnabled(features);
     }
 
     public void setExternal(boolean external) {
-        this.external = external;
+        this.features = Feature.External.config(this.features, external);
     }
 
     public ClusteringType getClusteringType() {
@@ -1483,11 +1546,11 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     }
 
     public boolean isDimension() {
-        return dimension;
+        return Feature.Dimension.isEnabled(features);
     }
 
     public void setDimension(boolean dimension) {
-        this.dimension = dimension;
+        this.features = Feature.Dimension.config(features, dimension);
     }
 
     public SQLExpr getLocation() {
@@ -1615,7 +1678,7 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
                 SQLTableElement old = columnMap.put(nameHashCode64, item);
                 if (old != null) {
                     if (throwException) {
-                        throw new SemanticException("Table contains duplicate column names : "
+                        throw new ParserException("Table contains duplicate column names : "
                                 + SQLUtils.normalize(columnName.getSimpleName()));
                     }
                     return true;
@@ -1624,17 +1687,6 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
         }
 
         return false;
-    }
-
-    public SQLExpr getEngine() {
-        return engine;
-    }
-
-    public void setEngine(SQLExpr x) {
-        if (x != null) {
-            x.setParent(this);
-        }
-        this.engine = x;
     }
 
     public DDLObjectType getDDLObjectType() {
@@ -1646,9 +1698,50 @@ public class SQLCreateTableStatement extends SQLStatementImpl implements SQLDDLS
     }
 
     public void setLifeCycle(SQLExpr x) {
+        if (x instanceof SQLNumberExpr) {
+            Number number = ((SQLNumberExpr) x).getNumber();
+            if (number instanceof BigDecimal) {
+                x = new SQLIntegerExpr(((BigDecimal) number).intValueExact());
+            }
+        }
         if (x != null) {
             x.setParent(this);
         }
         this.lifeCycle = x;
+    }
+
+    public enum Feature {
+        Temporary(1),
+        Global(1 << 1),
+        Local(1 << 2),
+        OrReplace(1 << 3),
+        IfNotExists(1 << 4),
+        External(1 << 5),
+        Transactional(1 << 6),
+        Shadow(1 << 7),
+        Dimension(1 << 8),
+        Set(1 << 9),
+        MultiSet(1 << 10),
+        Volatile(1 << 11),
+        Unlogged(1 << 12);
+        public final int mask;
+
+        Feature(int mask) {
+            this.mask = mask;
+        }
+
+        public boolean isEnabled(long features) {
+            return (features & mask) != 0;
+        }
+
+        public int config(int features, boolean state) {
+            if (state) {
+                features |= this.mask;
+            } else {
+                features &= ~this.mask;
+            }
+
+            return features;
+        }
     }
 }

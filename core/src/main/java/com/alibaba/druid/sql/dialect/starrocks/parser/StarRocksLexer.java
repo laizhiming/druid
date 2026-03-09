@@ -10,22 +10,39 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class StarRocksLexer extends Lexer {
-    public static final Keywords DEFAULT_STARROCKS_KEYWORDS;
-
+    static final Keywords STARROCKS_KEYWORDS;
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
+        map.put("ADD", Token.ADD);
+        map.put("BOTH", Token.BOTH);
+        map.put("DUAL", Token.DUAL);
+        map.put("FALSE", Token.FALSE);
+        map.put("FORCE", Token.FORCE);
+        map.put("IF", Token.IF);
+        map.put("KILL", Token.KILL);
         map.put("BITMAP", Token.BITMAP);
-        map.put("USING", Token.USING);
+        map.put("NGRAMBF", Token.NGRAMBF);
+
+        map.put("TRUE", Token.TRUE);
+        map.put("SHOW", Token.SHOW);
+        map.put("ANALYZE", Token.ANALYZE);
+        map.put("ROW", Token.ROW);
+
         map.put("PARTITION", Token.PARTITION);
 
-        DEFAULT_STARROCKS_KEYWORDS = new Keywords(map);
+        map.put("MOD", Token.MOD);
+        map.put("RLIKE", Token.RLIKE);
+        map.put("USING", Token.USING);
+        map.put("OVERWRITE", Token.OVERWRITE);
+        STARROCKS_KEYWORDS = new Keywords(map);
     }
 
-    {
-        dbType = DbType.starrocks;
+    @Override
+    protected Keywords loadKeywords() {
+        return STARROCKS_KEYWORDS;
     }
 
     public StarRocksLexer(String input) {
@@ -34,13 +51,13 @@ public class StarRocksLexer extends Lexer {
 
     public StarRocksLexer(char[] input, int inputLength, boolean skipComment) {
         super(input, inputLength, skipComment);
-        super.keywords = DEFAULT_STARROCKS_KEYWORDS;
+        dbType = DbType.starrocks;
     }
 
     public StarRocksLexer(String input, SQLParserFeature... features) {
         super(input, true);
         this.keepComments = true;
-        super.keywords = DEFAULT_STARROCKS_KEYWORDS;
+        dbType = DbType.starrocks;
 
         for (SQLParserFeature feature : features) {
             config(feature, true);
@@ -51,6 +68,6 @@ public class StarRocksLexer extends Lexer {
         super(input, skipComment);
         this.skipComment = skipComment;
         this.keepComments = keepComments;
-        super.keywords = DEFAULT_STARROCKS_KEYWORDS;
+        dbType = DbType.starrocks;
     }
 }

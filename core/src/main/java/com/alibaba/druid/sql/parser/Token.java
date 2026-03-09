@@ -43,6 +43,7 @@ public enum Token {
     NULL("NULL"),
     NOT("NOT"),
     DISTINCT("DISTINCT"),
+    DISTINCTROW("DISTINCTROW"),
 
     TABLE("TABLE"),
     TABLESPACE("TABLESPACE"),
@@ -64,6 +65,7 @@ public enum Token {
     FOREIGN("FOREIGN"),
     REFERENCES("REFERENCES"),
     LANGUAGE("LANGUAGE"),
+    PARTIAL("PARTIAL"),
 
     EXPLAIN("EXPLAIN"),
     FOR("FOR"),
@@ -135,7 +137,7 @@ public enum Token {
     REPLACE("REPLACE"),
     PERIOD("PERIOD"),
 
-    BITS,
+    BITS("BITS"),
 
     // MySql procedure add by zz
     WHILE("WHILE"),
@@ -249,11 +251,15 @@ public enum Token {
     ANALYZE("ANALYZE"),
     OPTIMIZE("OPTIMIZE"),
 
+    // bigquery
+    RAISE("RAISE"),
+
     // transact-sql
     TOP("TOP"),
 
     ARRAY("ARRAY"),
     DISTRIBUTE("DISTRIBUTE"),
+    OPTION("OPTION"),
 
     // hive
 
@@ -267,6 +273,7 @@ public enum Token {
     LITERAL_HEX,
     LITERAL_CHARS,
     LITERAL_NCHARS,
+    LITERAL_TEXT_BLOCK,
 
     CODE, // odps
 
@@ -289,6 +296,10 @@ public enum Token {
 
     // clickhouse
     PREWHERE("PREWHERE"),
+    SETTINGS("SETTINGS"),
+    FINAL("FINAL"),
+    TTL("TTL"),
+    CODEC("CODEC"),
 
     // Teradata
     SEL("SEL"),
@@ -308,8 +319,26 @@ public enum Token {
     UPSERT("UPSERT"), // Phoenix
 
     // StarRocks
-    BIGINT("BIGINT"),
+    ADD("ADD"),
+    BOTH("BOTH"),
+    FORCE("FORCE"),
     BITMAP("BITMAP"),
+    NGRAMBF("NGRAMBF"),
+    // Doris
+    INVERTED("INVERTED"),
+    // Redshift
+    ENCODE("ENCODE"),
+    DISTSTYLE("DISTSTYLE"),
+    AUTO("AUTO"),
+    EVEN("EVEN"),
+    DISTKEY("DISTKEY"),
+    SORTKEY("SORTKEY"),
+    COMPOUND("COMPOUND"),
+    INTERLEAVED("INTERLEAVED"),
+    BACKUP("BACKUP"),
+    TABLET("TABLET"),
+    REPEATABLE("REPEATABLE"),
+    TABLESAMPLE("TABLESAMPLE"),
 
     LPAREN("("),
     RPAREN(")"),

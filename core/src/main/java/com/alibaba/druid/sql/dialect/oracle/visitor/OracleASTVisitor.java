@@ -312,20 +312,6 @@ public interface OracleASTVisitor extends SQLASTVisitor {
     default void endVisit(OracleSysdateExpr x) {
     }
 
-    default boolean visit(OracleExceptionStatement x) {
-        return true;
-    }
-
-    default void endVisit(OracleExceptionStatement x) {
-    }
-
-    default boolean visit(OracleExceptionStatement.Item x) {
-        return true;
-    }
-
-    default void endVisit(OracleExceptionStatement.Item x) {
-    }
-
     default boolean visit(OracleArgumentExpr x) {
         return true;
     }
@@ -707,5 +693,26 @@ public interface OracleASTVisitor extends SQLASTVisitor {
     }
 
     default void endVisit(OracleXmlColumnProperties.OracleXMLTypeStorage x) {
+    }
+
+    default boolean visit(OracleAlterPackageStatement x) {
+        return true;
+    }
+
+    default void endVisit(OracleAlterPackageStatement x) {
+    }
+
+    default boolean visit(OracleDropPackageStatement x) {
+        return true;
+    }
+
+    default void endVisit(OracleDropPackageStatement x) {
+    }
+
+    default boolean visit(OracleCreateTableSpaceStatement x) {
+        return true;
+    }
+
+    default void endVisit(OracleCreateTableSpaceStatement x) {
     }
 }

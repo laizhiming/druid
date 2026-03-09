@@ -25,7 +25,6 @@ import com.alibaba.druid.sql.dialect.db2.visitor.DB2ASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveInsert;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveInsertStatement;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveMultiInsertStatement;
-import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
 import com.alibaba.druid.sql.dialect.hive.visitor.HiveASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.mysql.ast.MysqlForeignKey;
 import com.alibaba.druid.sql.dialect.mysql.ast.clause.MySqlCursorDeclareStatement;
@@ -526,7 +525,7 @@ class SchemaResolveVisitorFactory {
             return true;
         }
 
-        public boolean visit(HiveCreateTableStatement x) {
+        public boolean visit(SQLCreateTableStatement x) {
             resolve(this, x);
             return false;
         }
@@ -1017,6 +1016,13 @@ class SchemaResolveVisitorFactory {
             visitor.visit(query);
         }
 
+        if (x instanceof OracleInsertStatement) {
+            SQLObject returning = ((OracleInsertStatement) x).getReturning();
+            if (returning != null) {
+                returning.accept(visitor);
+            }
+        }
+
         visitor.popContext();
     }
 
@@ -1156,7 +1162,10 @@ class SchemaResolveVisitorFactory {
         if (tableSource != null) {
             x.setResolvedTableSource(tableSource);
 
-            SQLColumnDefinition column = tableSource.findColumn(hash);
+            SQLObject column = tableSource.findColumn(hash);
+            if (column == null) {
+                column = tableSource.resolveColumn(hash);
+            }
             if (column != null) {
                 x.setResolvedColumn(column);
             }
@@ -1423,12 +1432,18 @@ class SchemaResolveVisitorFactory {
             SQLExpr expr = selectItem.getExpr();
             if (expr instanceof SQLAllColumnExpr) {
                 SQLAllColumnExpr allColumnExpr = (SQLAllColumnExpr) expr;
-                allColumnExpr.setResolvedTableSource(from);
+                SQLExpr owner = allColumnExpr.getOwner();
+                SQLTableSource resolvedTableSource = from;
+                if (owner instanceof SQLIdentifierExpr) {
+                    String ownerName = ((SQLIdentifierExpr) owner).getName();
+                    resolvedTableSource = x.findTableSource(ownerName);
+                }
+                allColumnExpr.setResolvedTableSource(resolvedTableSource);
 
                 visitor.visit(allColumnExpr);
 
                 if (visitor.isEnabled(SchemaResolveVisitor.Option.ResolveAllColumn)) {
-                    extractColumns(visitor, from, null, columns);
+                    extractColumns(visitor, resolvedTableSource, null, columns);
                 }
             } else if (expr instanceof SQLPropertyExpr) {
                 SQLPropertyExpr propertyExpr = (SQLPropertyExpr) expr;
@@ -1451,6 +1466,17 @@ class SchemaResolveVisitorFactory {
                     column = tableSource.findColumn(propertyExpr.nameHashCode64());
                     if (column != null) {
                         propertyExpr.setResolvedColumn(column);
+                    }
+                }
+            } else if (expr instanceof SQLAllColumnExpr) {
+                SQLAllColumnExpr allColumnExpr = (SQLAllColumnExpr) expr;
+                SQLExpr owner = allColumnExpr.getOwner();
+                if (owner instanceof SQLIdentifierExpr) {
+                    SQLIdentifierExpr ownerIdent = (SQLIdentifierExpr) owner;
+                    String ownerName = ownerIdent.getName();
+                    if (visitor.isEnabled(SchemaResolveVisitor.Option.ResolveAllColumn)) {
+                        SQLTableSource tableSource = x.findTableSource(ownerName);
+                        extractColumns(visitor, tableSource, ownerName, columns);
                     }
                 }
             } else if (expr instanceof SQLIdentifierExpr) {
@@ -1787,7 +1813,11 @@ class SchemaResolveVisitorFactory {
         SQLSelectQuery query = x.getQuery();
         if (query != null) {
             if (query instanceof SQLSelectQueryBlock) {
-                visitor.visit((SQLSelectQueryBlock) query);
+                try {
+                    visitor.visit((SQLSelectQueryBlock) query);
+                } catch (StackOverflowError ignored) {
+                    // ignore
+                }
             } else {
                 query.accept(visitor);
             }
@@ -1872,7 +1902,7 @@ class SchemaResolveVisitorFactory {
             }
         }
 
-        if (expr instanceof SQLName) {
+        if (expr instanceof SQLName || expr instanceof SQLAllColumnExpr) {
             if (x.getSchemaObject() != null) {
                 return;
             }
@@ -1883,6 +1913,11 @@ class SchemaResolveVisitorFactory {
                 identifierExpr = (SQLIdentifierExpr) expr;
             } else if (expr instanceof SQLPropertyExpr) {
                 SQLExpr owner = ((SQLPropertyExpr) expr).getOwner();
+                if (owner instanceof SQLIdentifierExpr) {
+                    identifierExpr = (SQLIdentifierExpr) owner;
+                }
+            } else if (expr instanceof SQLAllColumnExpr) {
+                SQLExpr owner = ((SQLAllColumnExpr) expr).getOwner();
                 if (owner instanceof SQLIdentifierExpr) {
                     identifierExpr = (SQLIdentifierExpr) owner;
                 }
@@ -1996,50 +2031,47 @@ class SchemaResolveVisitorFactory {
             on.accept(visitor);
         }
 
-        SQLMergeStatement.MergeUpdateClause updateClause = x.getUpdateClause();
-        if (updateClause != null) {
-            for (SQLUpdateSetItem item : updateClause.getItems()) {
-                SQLExpr column = item.getColumn();
+        List<SQLMergeStatement.When> whens = x.getWhens();
+        for (SQLMergeStatement.When when : whens) {
+            SQLName by = when.getBy();
+            if (by != null) {
+                by.accept(visitor);
+            }
 
-                if (column instanceof SQLIdentifierExpr) {
-                    ((SQLIdentifierExpr) column).setResolvedTableSource(into);
-                } else if (column instanceof SQLPropertyExpr) {
-                    ((SQLPropertyExpr) column).setResolvedTableSource(into);
-                } else {
+            if (when instanceof SQLMergeStatement.WhenUpdate) {
+                SQLMergeStatement.WhenUpdate updateClause = (SQLMergeStatement.WhenUpdate) when;
+                for (SQLUpdateSetItem item : updateClause.getItems()) {
+                    SQLExpr column = item.getColumn();
+
+                    if (column instanceof SQLIdentifierExpr) {
+                        ((SQLIdentifierExpr) column).setResolvedTableSource(into);
+                    } else if (column instanceof SQLPropertyExpr) {
+                        ((SQLPropertyExpr) column).setResolvedTableSource(into);
+                    } else {
+                        column.accept(visitor);
+                    }
+
+                    SQLExpr value = item.getValue();
+                    if (value != null) {
+                        value.accept(visitor);
+                    }
+                }
+            } else if (when instanceof SQLMergeStatement.WhenInsert) {
+                SQLMergeStatement.WhenInsert insertClause = (SQLMergeStatement.WhenInsert) when;
+                for (SQLExpr column : insertClause.getColumns()) {
+                    if (column instanceof SQLIdentifierExpr) {
+                        ((SQLIdentifierExpr) column).setResolvedTableSource(into);
+                    } else if (column instanceof SQLPropertyExpr) {
+                        ((SQLPropertyExpr) column).setResolvedTableSource(into);
+                    }
                     column.accept(visitor);
                 }
-
-                SQLExpr value = item.getValue();
-                if (value != null) {
+                for (SQLExpr value : insertClause.getValues()) {
                     value.accept(visitor);
                 }
             }
 
-            SQLExpr where = updateClause.getWhere();
-            if (where != null) {
-                where.accept(visitor);
-            }
-
-            SQLExpr deleteWhere = updateClause.getDeleteWhere();
-            if (deleteWhere != null) {
-                deleteWhere.accept(visitor);
-            }
-        }
-
-        SQLMergeStatement.MergeInsertClause insertClause = x.getInsertClause();
-        if (insertClause != null) {
-            for (SQLExpr column : insertClause.getColumns()) {
-                if (column instanceof SQLIdentifierExpr) {
-                    ((SQLIdentifierExpr) column).setResolvedTableSource(into);
-                } else if (column instanceof SQLPropertyExpr) {
-                    ((SQLPropertyExpr) column).setResolvedTableSource(into);
-                }
-                column.accept(visitor);
-            }
-            for (SQLExpr value : insertClause.getValues()) {
-                value.accept(visitor);
-            }
-            SQLExpr where = insertClause.getWhere();
+            SQLExpr where = when.getWhere();
             if (where != null) {
                 where.accept(visitor);
             }

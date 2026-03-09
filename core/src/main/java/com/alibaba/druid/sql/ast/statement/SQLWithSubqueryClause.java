@@ -25,8 +25,8 @@ public class SQLWithSubqueryClause extends SQLObjectImpl {
     private Boolean recursive;
     private final List<Entry> entries = new ArrayList<Entry>();
 
-    public SQLWithSubqueryClause clone() {
-        SQLWithSubqueryClause x = new SQLWithSubqueryClause();
+    protected void cloneTo(SQLWithSubqueryClause x) {
+        super.cloneTo(x);
         x.recursive = recursive;
 
         for (Entry entry : entries) {
@@ -34,12 +34,28 @@ public class SQLWithSubqueryClause extends SQLObjectImpl {
             entry2.setParent(x);
             x.entries.add(entry2);
         }
+    }
 
+    public SQLWithSubqueryClause clone() {
+        SQLWithSubqueryClause x = new SQLWithSubqueryClause();
+        cloneTo(x);
         return x;
     }
 
     public List<Entry> getEntries() {
         return entries;
+    }
+
+    public Entry findEntry(String alias) {
+        if (alias == null) {
+            return null;
+        }
+        for (Entry entry : entries) {
+            if (alias.equals(entry.getAlias())) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     public void addEntry(Entry entry) {
@@ -75,6 +91,7 @@ public class SQLWithSubqueryClause extends SQLObjectImpl {
         protected SQLSelect subQuery;
         protected SQLStatement returningStatement;
         protected SQLExpr expr;
+        protected boolean prefixAlias;
 
         public Entry() {
         }
@@ -106,6 +123,17 @@ public class SQLWithSubqueryClause extends SQLObjectImpl {
 
             x.alias = alias;
             x.expr = expr;
+            x.prefixAlias = prefixAlias;
+        }
+
+        public SQLObject resolveColumn(long columnNameHash) {
+            if (subQuery != null) {
+                SQLSelectQueryBlock queryBlock = subQuery.getQueryBlock();
+                if (queryBlock != null) {
+                    return queryBlock.findSelectItem(columnNameHash);
+                }
+            }
+            return null;
         }
 
         @Override
@@ -206,6 +234,14 @@ public class SQLWithSubqueryClause extends SQLObjectImpl {
                 }
             }
             return null;
+        }
+
+        public boolean isPrefixAlias() {
+            return prefixAlias;
+        }
+
+        public void setPrefixAlias(boolean prefixAlias) {
+            this.prefixAlias = prefixAlias;
         }
 
         @Override

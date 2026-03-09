@@ -96,8 +96,8 @@ public class OracleCreatePackageTest3 extends OracleTest {
                         "\t)\n" +
                         "\t;\n" +
                         "\tFUNCTION new_request (\n" +
-                        "\t\tp_method IN VARCHAR2, \n" +
-                        "\t\tp_namespace IN VARCHAR2, \n" +
+                        "\t\tp_method IN VARCHAR2,\n" +
+                        "\t\tp_namespace IN VARCHAR2,\n" +
                         "\t\tp_envelope_tag IN VARCHAR2 := 'SOAP-ENV'\n" +
                         "\t)\n" +
                         "\tRETURN t_request\n" +
@@ -110,20 +110,20 @@ public class OracleCreatePackageTest3 extends OracleTest {
                         "\t)\n" +
                         "\t;\n" +
                         "\tFUNCTION invoke (\n" +
-                        "\t\tp_request IN OUT NOCOPY t_request, \n" +
-                        "\t\tp_url IN VARCHAR2, \n" +
+                        "\t\tp_request IN OUT NOCOPY t_request,\n" +
+                        "\t\tp_url IN VARCHAR2,\n" +
                         "\t\tp_action IN VARCHAR2\n" +
                         "\t)\n" +
                         "\tRETURN t_response\n" +
                         "\t\n" +
                         "\tFUNCTION get_return_value (\n" +
-                        "\t\tp_response IN OUT NOCOPY t_response, \n" +
-                        "\t\tp_name IN VARCHAR2, \n" +
+                        "\t\tp_response IN OUT NOCOPY t_response,\n" +
+                        "\t\tp_name IN VARCHAR2,\n" +
                         "\t\tp_namespace IN VARCHAR2\n" +
                         "\t)\n" +
                         "\tRETURN VARCHAR2\n" +
                         "\t\n" +
-                        "END Mail_fck_bpi;",//
+                        "END Mail_fck_bpi;",
                 SQLUtils.toSQLString(stmt, JdbcConstants.ORACLE));
 
         OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();
@@ -135,14 +135,14 @@ public class OracleCreatePackageTest3 extends OracleTest {
         System.out.println("relationships : " + visitor.getRelationships());
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-//        Assert.assertEquals(2, visitor.getTables().size());
+//        assertEquals(2, visitor.getTables().size());
 //
-//        Assert.assertEquals(5, visitor.getColumns().size());
+//        assertEquals(5, visitor.getColumns().size());
 //
-//        Assert.assertTrue(visitor.containsColumn("employees", "employee_id"));
-//        Assert.assertTrue(visitor.containsColumn("employees", "*"));
-//        Assert.assertTrue(visitor.containsColumn("departments", "department_id"));
-//        Assert.assertTrue(visitor.containsColumn("employees", "salary"));
-//        Assert.assertTrue(visitor.containsColumn("employees", "commission_pct"));
+//        assertTrue(visitor.containsColumn("employees", "employee_id"));
+//        assertTrue(visitor.containsColumn("employees", "*"));
+//        assertTrue(visitor.containsColumn("departments", "department_id"));
+//        assertTrue(visitor.containsColumn("employees", "salary"));
+//        assertTrue(visitor.containsColumn("employees", "commission_pct"));
     }
 }

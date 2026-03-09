@@ -18,8 +18,6 @@ public class MySqlSelectTest_179 extends MysqlTest {
         assertEquals(1, statementList.size());
 
         assertEquals("SELECT zip(ARRAY[1, 2], ARRAY['1b', NULL, '3b'])", stmt.toString());
-
-
     }
 
     public void test_1() throws Exception {
@@ -31,8 +29,6 @@ public class MySqlSelectTest_179 extends MysqlTest {
         assertEquals(1, statementList.size());
 
         assertEquals("SELECT transform(ARRAY[], x -> x + 1);", stmt.toString());
-
-
     }
 
     public void test_2() throws Exception {
@@ -42,10 +38,6 @@ public class MySqlSelectTest_179 extends MysqlTest {
         SQLSelectStatement stmt = (SQLSelectStatement) statementList.get(0);
         System.out.println(stmt.toString());
         assertEquals(1, statementList.size());
-//@todo 暂时多加括号来断言
-        assertEquals("SELECT reduce(ARRAY[5, 20, NULL, 50], 0, ((s, x) -> IF(x IS NULL, s, s + x)), s -> s);", stmt.toString());
-
-
+        assertEquals("SELECT reduce(ARRAY[5, 20, NULL, 50], 0, (s, x) -> IF(x IS NULL, s, s + x), s -> s);", stmt.toString());
     }
-
 }

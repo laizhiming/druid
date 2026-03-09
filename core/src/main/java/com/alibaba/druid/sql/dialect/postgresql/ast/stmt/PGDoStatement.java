@@ -24,7 +24,9 @@ public class PGDoStatement extends SQLStatementImpl implements PGSQLStatement {
     private SQLStatement block;
 
     protected void accept0(SQLASTVisitor visitor) {
-        accept0((PGASTVisitor) visitor);
+        if (visitor instanceof PGASTVisitor) {
+            accept0((PGASTVisitor) visitor);
+        }
     }
 
     @Override

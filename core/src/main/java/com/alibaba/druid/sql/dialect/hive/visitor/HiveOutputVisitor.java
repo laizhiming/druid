@@ -16,39 +16,45 @@
 package com.alibaba.druid.sql.dialect.hive.visitor;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.SQLDialect;
+import com.alibaba.druid.sql.ast.SQLAdhocTableSource;
 import com.alibaba.druid.sql.ast.SQLCommentHint;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
 import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.dialect.hive.Hive;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveAddJarStatement;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveInsert;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveInsertStatement;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveMultiInsertStatement;
 import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateFunctionStatement;
+import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
 import com.alibaba.druid.sql.dialect.hive.stmt.HiveLoadDataStatement;
 import com.alibaba.druid.sql.dialect.hive.stmt.HiveMsckRepairStatement;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 
 import java.util.List;
+import java.util.Map;
 
 public class HiveOutputVisitor extends SQLASTOutputVisitor implements HiveASTVisitor {
-    {
-        super.quote = '`';
-    }
-
     public HiveOutputVisitor(StringBuilder appender) {
-        super(appender, DbType.hive);
+        super(appender, DbType.hive, Hive.DIALECT);
     }
 
-    public HiveOutputVisitor(StringBuilder appender, DbType dbType) {
-        super(appender, dbType);
+    public HiveOutputVisitor(StringBuilder appender, DbType dbType, SQLDialect dialect) {
+        super(appender, dbType, dialect);
     }
 
     public HiveOutputVisitor(StringBuilder appender, boolean parameterized) {
-        super(appender, parameterized);
-        dbType = DbType.hive;
+        super(appender, DbType.hive, Hive.DIALECT, parameterized);
+    }
+
+    public HiveOutputVisitor(StringBuilder appender, DbType dbType, SQLDialect dialect, boolean parameterized) {
+        super(appender, DbType.hive, Hive.DIALECT, parameterized);
     }
 
     @Override
@@ -219,10 +225,13 @@ public class HiveOutputVisitor extends SQLASTOutputVisitor implements HiveASTVis
         return false;
     }
 
-    public boolean visit(SQLMergeStatement.MergeUpdateClause x) {
-        print0(ucase ? "WHEN MATCHED " : "when matched ");
+    public boolean visit(SQLMergeStatement.WhenUpdate x) {
+        print0(ucase ? "WHEN" : "when");
+        if (x.isNot()) {
+            print0(ucase ? " NOT" : " not");
+        }
+        print0(ucase ? " MATCHED " : " matched ");
         this.indentCount++;
-
         SQLExpr where = x.getWhere();
         if (where != null) {
             this.indentCount++;
@@ -241,14 +250,6 @@ public class HiveOutputVisitor extends SQLASTOutputVisitor implements HiveASTVis
         print0(ucase ? "UPDATE SET " : "update set ");
         printAndAccept(x.getItems(), ", ");
         this.indentCount--;
-
-        SQLExpr deleteWhere = x.getDeleteWhere();
-        if (deleteWhere != null) {
-            println();
-            print0(ucase ? "WHEN MATCHED AND " : "when matched and ");
-            printExpr(deleteWhere, parameterized);
-            print0(ucase ? " DELETE" : " delete");
-        }
 
         return false;
     }
@@ -449,6 +450,9 @@ public class HiveOutputVisitor extends SQLASTOutputVisitor implements HiveASTVis
     }
 
     public boolean visit(SQLCharExpr x, boolean parameterized) {
+        if (x.hasBeforeComment()) {
+            printlnComments(x.getBeforeCommentsDirect());
+        }
         String text = x.getText();
         if (text == null) {
             print0(ucase ? "NULL" : "null");
@@ -494,7 +498,9 @@ public class HiveOutputVisitor extends SQLASTOutputVisitor implements HiveASTVis
 
             print0(buf.toString());
         }
-
+        if (x.hasAfterComment()) {
+            printAfterComments(x.getAfterCommentsDirect());
+        }
         return false;
     }
 
@@ -510,5 +516,226 @@ public class HiveOutputVisitor extends SQLASTOutputVisitor implements HiveASTVis
         print0(ucase ? "TBLPROPERTIES (" : "tblproperties (");
         incrementIndent();
         println();
+    }
+
+    public boolean visit(HiveCreateTableStatement x) {
+        return visit((SQLCreateTableStatement) x);
+    }
+    @Override
+    public boolean visit(SQLCreateTableStatement x) {
+        printCreateTable(x, true, true);
+        return false;
+    }
+
+    protected void printCreateTable(SQLCreateTableStatement x, boolean printSelect,
+                                    boolean printCommentAdvance) {
+        final SQLObject parent = x.getParent();
+        if (x.hasBeforeComment()) {
+            printlnComments(x.getBeforeCommentsDirect());
+        }
+        if (parent instanceof SQLAdhocTableSource) {
+            // skip
+        } else {
+            print0(ucase ? "CREATE " : "create ");
+        }
+        printCreateTableFeatures(x);
+        print0(ucase ? "TABLE " : "table ");
+        if (x.isIfNotExists()) {
+            print0(ucase ? "IF NOT EXISTS " : "if not exists ");
+        }
+        printTableSourceExpr(x.getName());
+        printTableElements(x.getTableElementList());
+        printInherits(x);
+        if (x instanceof HiveCreateTableStatement) {
+            printUsing((HiveCreateTableStatement) x);
+        }
+        if (printCommentAdvance) {
+            printComment(x.getComment());
+        }
+        if (x instanceof HiveCreateTableStatement) {
+            printMappedBy(((HiveCreateTableStatement) x).getMappedBy());
+        }
+        printPartitionedBy(x);
+        printClusteredBy(x);
+        printSortedBy(x.getSortedBy());
+        printIntoBuckets(x.getBuckets());
+        if (x instanceof HiveCreateTableStatement) {
+            printSkewedBy((HiveCreateTableStatement) x);
+        }
+        if (!printCommentAdvance) {
+            printComment(x.getComment());
+        }
+        printPartitionBy(x);
+        printRowFormat(x);
+        printCreateTableLike(x);
+        printStoredAs(x);
+        printStoredBy(x);
+        printLocation(x);
+        printCached(x);
+        printTableOptions(x);
+        printLifeCycle(x.getLifeCycle());
+        printSelectAs(x, printSelect);
+    }
+
+    protected void printUsing(HiveCreateTableStatement x) {
+        SQLExpr using = x.getUsing();
+        if (using != null) {
+            println();
+            print0(ucase ? "USING " : "using ");
+            using.accept(this);
+        }
+    }
+
+    protected void printSkewedBy(HiveCreateTableStatement x) {
+        List<SQLExpr> skewedBy = x.getSkewedBy();
+        if (!skewedBy.isEmpty()) {
+            println();
+            print0(ucase ? "SKEWED BY (" : "skewed by (");
+            printAndAccept(skewedBy, ",");
+            print(')');
+
+            List<SQLExpr> skewedByOn = x.getSkewedByOn();
+            if (!skewedByOn.isEmpty()) {
+                print0(ucase ? " ON (" : " on (");
+                printAndAccept(skewedByOn, ",");
+                print(')');
+            }
+            if (x.isSkewedByStoreAsDirectories()) {
+                print(ucase ? " STORED AS DIRECTORIES" : " stored as directories");
+            }
+        }
+    }
+
+    protected void printRowFormat(SQLCreateTableStatement x) {
+        SQLExternalRecordFormat format = x.getRowFormat();
+        SQLExpr storedBy = x.getStoredBy();
+        if (format != null) {
+            println();
+            print0(ucase ? "ROW FORMAT" : "row format");
+            if (format.getSerde() == null) {
+                print0(ucase ? " DELIMITED" : " delimited ");
+            }
+            visit(format);
+            if (storedBy == null) {
+                if (x instanceof HiveCreateTableStatement) {
+                    printSerdeProperties(((HiveCreateTableStatement) x).getSerdeProperties());
+                }
+            }
+        }
+    }
+
+    protected void printStoredBy(SQLCreateTableStatement x) {
+        SQLExpr storedBy = x.getStoredBy();
+        if (storedBy != null) {
+            printStoredBy(storedBy);
+
+            if (x instanceof HiveCreateTableStatement) {
+                Map<String, SQLObject> serdeProperties = ((HiveCreateTableStatement) x).getSerdeProperties();
+                printSerdeProperties(serdeProperties);
+            }
+        }
+    }
+
+    protected void printStoredBy(SQLExpr storedBy) {
+        if (storedBy == null) {
+            return;
+        }
+
+        println();
+        print0(ucase ? "STORED BY " : "stored by ");
+
+        if (storedBy instanceof SQLIdentifierExpr) {
+            String name = ((SQLIdentifierExpr) storedBy).getName();
+            if (!name.isEmpty()
+                    && name.charAt(0) != '`'
+                    && name.charAt(0) != '"'
+                    && name.charAt(0) != '\''
+            ) {
+                print('\'');
+                print(name);
+                print('\'');
+                return;
+            }
+        }
+
+        printExpr(storedBy, parameterized);
+    }
+
+    protected void printStoredAs(SQLCreateTableStatement x) {
+        SQLExpr storedAs = x.getStoredAs();
+        if (storedAs != null) {
+            println();
+            boolean isHiveCreateTable = x instanceof HiveCreateTableStatement;
+            if (isHiveCreateTable && ((HiveCreateTableStatement) x).isLbracketUse()) {
+                print("[");
+            }
+            print0(ucase ? "STORED AS" : "stored as");
+            if (storedAs instanceof SQLIdentifierExpr) {
+                print(' ');
+                printExpr(storedAs, parameterized);
+            } else {
+                incrementIndent();
+                println();
+                printExpr(storedAs, parameterized);
+                decrementIndent();
+            }
+
+            if (isHiveCreateTable && ((HiveCreateTableStatement) x).isRbracketUse()) {
+                print("]");
+            }
+        }
+    }
+
+    protected void printSelectAs(SQLCreateTableStatement x, boolean printSelect) {
+        SQLSelect select = x.getSelect();
+        if (printSelect && select != null) {
+            println();
+            if (x instanceof HiveCreateTableStatement && ((HiveCreateTableStatement) x).isLikeQuery()) { // for dla
+                print0(ucase ? "LIKE" : "like");
+            } else {
+                print0(ucase ? "AS" : "as");
+            }
+            println();
+            visit(select);
+        }
+    }
+
+    protected void printCached(SQLCreateTableStatement x) {
+        // do nothing
+    }
+
+    protected void printTableElementsWithComment(SQLCreateTableStatement x) {
+        final List<SQLTableElement> tableElementList = x.getTableElementList();
+        int size = tableElementList.size();
+        if (size > 0) {
+            print0(" (");
+
+            if (this.isPrettyFormat() && x.hasBodyBeforeComment()) {
+                print(' ');
+                printlnComment(x.getBodyBeforeCommentsDirect());
+            }
+
+            this.indentCount++;
+            println();
+            for (int i = 0; i < size; ++i) {
+                SQLTableElement element = tableElementList.get(i);
+                element.accept(this);
+
+                if (i != size - 1) {
+                    print(',');
+                }
+                if (this.isPrettyFormat() && element.hasAfterComment()) {
+                    print(' ');
+                    printlnComment(element.getAfterCommentsDirect());
+                }
+
+                if (i != size - 1) {
+                    println();
+                }
+            }
+            this.indentCount--;
+            println();
+            print(')');
+        }
     }
 }

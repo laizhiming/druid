@@ -22,10 +22,10 @@ import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveInsert;
 import com.alibaba.druid.sql.dialect.hive.ast.HiveMultiInsertStatement;
-import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlExpr;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleInsertStatement;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.postgresql.visitor.PGASTVisitorAdapter;
 import com.alibaba.druid.sql.repository.SchemaObject;
@@ -598,6 +598,7 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
             case mysql:
             case mariadb:
             case tidb:
+            case polardbx:
                 return new MySqlOrderByStatVisitor(x);
             case postgresql:
             case greenplum:
@@ -861,8 +862,6 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
     }
 
     protected Column getColumn(SQLExpr expr) {
-        final SQLExpr original = expr;
-
         // unwrap
         expr = unwrapExpr(expr);
 
@@ -878,7 +877,8 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
                 SQLObject resolvedOwnerObject = propertyExpr.getResolvedOwnerObject();
                 if (resolvedOwnerObject instanceof SQLSubqueryTableSource
                         || resolvedOwnerObject instanceof SQLCreateProcedureStatement
-                        || resolvedOwnerObject instanceof SQLCreateFunctionStatement) {
+                        || resolvedOwnerObject instanceof SQLCreateFunctionStatement
+                        || resolvedOwnerObject instanceof SQLParameter) {
                     table = null;
                 }
 
@@ -1019,6 +1019,13 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
             if (expr instanceof SQLCastExpr) {
                 expr = ((SQLCastExpr) expr).getExpr();
                 continue;
+            }
+
+            if (expr instanceof SQLAllColumnExpr) {
+                SQLExpr owner = ((SQLAllColumnExpr) expr).getOwner();
+                if (owner != null) {
+                    return owner;
+                }
             }
 
             if (expr instanceof SQLPropertyExpr) {
@@ -1177,6 +1184,9 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
 
         accept(x.getColumns());
         accept(x.getQuery());
+        if (x instanceof OracleInsertStatement) {
+            accept(((OracleInsertStatement) x).getReturning());
+        }
 
         return false;
     }
@@ -1740,6 +1750,78 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
             return false;
         }
 
+        SQLIdentifierExpr owner = null;
+        if (x.getOwner() instanceof SQLIdentifierExpr) {
+            owner = (SQLIdentifierExpr) x.getOwner();
+        }
+        if (tableSource instanceof SQLSubqueryTableSource) {
+            SQLSelect subSelect = ((SQLSubqueryTableSource) tableSource).getSelect();
+            SQLSelectQueryBlock subQuery = subSelect.getQueryBlock();
+            if (subQuery != null && owner != null) {
+                SQLTableSource subTableSource = subQuery.findTableSourceWithColumn(owner.nameHashCode64());
+                if (subTableSource != null) {
+                    tableSource = subTableSource;
+                }
+            }
+        }
+
+        if (tableSource instanceof SQLExprTableSource) {
+            SQLExpr expr = ((SQLExprTableSource) tableSource).getExpr();
+
+            if (expr instanceof SQLIdentifierExpr) {
+                SQLIdentifierExpr table = (SQLIdentifierExpr) expr;
+                SQLTableSource resolvedTableSource = table.getResolvedTableSource();
+                if (resolvedTableSource instanceof SQLExprTableSource) {
+                    expr = ((SQLExprTableSource) resolvedTableSource).getExpr();
+                }
+            } else if (expr instanceof SQLPropertyExpr) {
+                SQLPropertyExpr table = (SQLPropertyExpr) expr;
+                SQLTableSource resolvedTableSource = table.getResolvedTableSource();
+                if (resolvedTableSource instanceof SQLExprTableSource) {
+                    expr = ((SQLExprTableSource) resolvedTableSource).getExpr();
+                }
+            }
+
+            if (expr instanceof SQLIdentifierExpr) {
+                SQLIdentifierExpr table = (SQLIdentifierExpr) expr;
+
+                SQLTableSource resolvedTableSource = table.getResolvedTableSource();
+                if (resolvedTableSource instanceof SQLWithSubqueryClause.Entry) {
+                    return false;
+                }
+
+                addColumn(table, "*");
+            } else if (expr instanceof SQLPropertyExpr) {
+                SQLPropertyExpr table = (SQLPropertyExpr) expr;
+                addColumn(table, "*");
+            } else if (expr instanceof SQLMethodInvokeExpr) {
+                SQLMethodInvokeExpr methodInvokeExpr = (SQLMethodInvokeExpr) expr;
+                if ("table".equalsIgnoreCase(methodInvokeExpr.getMethodName())
+                        && methodInvokeExpr.getArguments().size() == 1
+                        && methodInvokeExpr.getArguments().get(0) instanceof SQLName) {
+                    SQLName table = (SQLName) methodInvokeExpr.getArguments().get(0);
+
+                    String tableName = null;
+                    if (table instanceof SQLPropertyExpr) {
+                        SQLPropertyExpr propertyExpr = (SQLPropertyExpr) table;
+                        if (propertyExpr.getResolvedTableSource() != null
+                                && propertyExpr.getResolvedTableSource() instanceof SQLExprTableSource) {
+                            SQLExpr resolveExpr = ((SQLExprTableSource) propertyExpr.getResolvedTableSource()).getExpr();
+                            if (resolveExpr instanceof SQLName) {
+                                tableName = resolveExpr.toString() + "." + propertyExpr.getName();
+                            }
+                        }
+                    }
+
+                    if (tableName == null) {
+                        tableName = table.toString();
+                    }
+
+                    addColumn(tableName, "*");
+                }
+            }
+        }
+
         statAllColumn(x, tableSource);
 
         return false;
@@ -1761,6 +1843,12 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
     private void statAllColumn(SQLAllColumnExpr x, SQLExprTableSource tableSource) {
         SQLExprTableSource exprTableSource = tableSource;
         SQLName expr = exprTableSource.getName();
+        if (x.getOwner() instanceof SQLIdentifierExpr) {
+            SQLIdentifierExpr owner = (SQLIdentifierExpr) x.getOwner();
+            if (!tableSource.containsAlias(owner.normalizedName())) {
+                return;
+            }
+        }
 
         SQLCreateTableStatement createStmt = null;
 
@@ -1875,7 +1963,8 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
     }
 
     protected boolean isSimpleExprTableSource(SQLExprTableSource x) {
-        return x.getExpr() instanceof SQLName;
+        SQLExpr expr = x.getExpr();
+        return (expr instanceof SQLName && !(expr instanceof SQLAllColumnExpr)) || (expr instanceof SQLAllColumnExpr && ((SQLAllColumnExpr) expr).getOwner() != null);
     }
 
     public TableStat getTableStat(SQLExprTableSource tableSource) {
@@ -1905,6 +1994,8 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
             tableSource = ((SQLIdentifierExpr) expr).getResolvedTableSource();
         } else if (expr instanceof SQLPropertyExpr) {
             tableSource = ((SQLPropertyExpr) expr).getResolvedTableSource();
+        } else if (expr instanceof SQLAllColumnExpr) {
+            tableSource = ((SQLAllColumnExpr) expr).getResolvedTableSource();
         }
 
         if (tableSource instanceof SQLExprTableSource) {
@@ -2062,6 +2153,7 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
         this.functions.add(x);
 
         accept(x.getArguments());
+        accept(x.getFrom());
         return false;
     }
 
@@ -2174,8 +2266,9 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
     }
 
     public boolean visit(SQLCreateTableStatement x) {
+        SQLObject parent = x.getParent();
         if (repository != null
-                && x.getParent() == null) {
+                && (parent instanceof SQLBlockStatement || parent == null)) {
             repository.resolve(x);
         }
 
@@ -2351,6 +2444,7 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
     public boolean visit(SQLAlterTableDropConstraint x) {
         return false;
     }
+
     @Override
     public boolean visit(SQLAlterTableDropCheck x) {
         return false;
@@ -2616,7 +2710,7 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
     }
 
     @Override
-    public boolean visit(SQLPartition x) {
+    public boolean visit(SQLPartitionSingle x) {
         return false;
     }
 
@@ -2727,12 +2821,8 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
 
         x.getOn().accept(this);
 
-        if (x.getUpdateClause() != null) {
-            x.getUpdateClause().accept(this);
-        }
-
-        if (x.getInsertClause() != null) {
-            x.getInsertClause().accept(this);
+        for (SQLMergeStatement.When when : x.getWhens()) {
+            when.accept(this);
         }
 
         return false;
@@ -3188,11 +3278,6 @@ public class SchemaStatVisitor extends SQLASTVisitorAdapter {
 
     public boolean visit(SQLAlterTableArchivePartition x) {
         return true;
-    }
-
-    @Override
-    public boolean visit(HiveCreateTableStatement x) {
-        return visit((SQLCreateTableStatement) x);
     }
 
     @Override

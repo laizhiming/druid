@@ -15,43 +15,47 @@
  */
 package com.alibaba.druid.bvt.sql.odps;
 
-import java.util.List;
-
 import com.alibaba.druid.DbType;
 import com.alibaba.druid.TestUtil;
-import com.alibaba.druid.sql.SQLUtils;
-import com.alibaba.druid.sql.parser.SQLParserFeature;
-import com.alibaba.druid.sql.parser.SQLParserUtils;
-import com.alibaba.druid.sql.parser.SQLStatementParser;
-import com.alibaba.druid.sql.visitor.VisitorFeature;
-import junit.framework.TestCase;
-
-import org.junit.Assert;
-
+import com.alibaba.druid.bvt.sql.SQLResourceTest;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.odps.parser.OdpsStatementParser;
 import com.alibaba.druid.sql.dialect.odps.visitor.OdpsSchemaStatVisitor;
+import com.alibaba.druid.sql.parser.SQLParserFeature;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
+import com.alibaba.druid.sql.visitor.VisitorFeature;
+import org.junit.Test;
+
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
-public class OdpsResourceTest extends TestCase {
+public class OdpsResourceTest extends SQLResourceTest {
+    public OdpsResourceTest() {
+        super(DbType.odps);
+    }
+
+    @Test
     public void test_0() throws Exception {
         exec_test("bvt/parser/odps-0.txt");
     }
 
+    @Test
     public void test_9() throws Exception {
         exec_test("bvt/parser/odps-9.txt");
     }
 
+    @Test
     public void test_10() throws Exception {
         exec_test("bvt/parser/odps-10.txt");
     }
 
+    @Test
     public void test_11() throws Exception {
         exec_test("bvt/parser/odps-11.txt");
     }
 
+    @Test
     public void test_12() throws Exception {
         exec_test("bvt/parser/odps-12.txt");
     }
@@ -60,12 +64,54 @@ public class OdpsResourceTest extends TestCase {
 //        exec_test("bvt/parser/odps-13.txt");
 //    }
 
+    @Test
     public void test_14() throws Exception {
         exec_test("bvt/parser/odps-14.txt");
     }
 
+    @Test
     public void test_15() throws Exception {
         exec_test("bvt/parser/odps-15.txt");
+    }
+
+    @Test
+    public void test_16() throws Exception {
+        exec_test("bvt/parser/odps-16.txt");
+    }
+
+    @Test
+    public void test_17() throws Exception {
+        exec_test("bvt/parser/odps-17.txt");
+    }
+
+    @Test
+    public void test_18() throws Exception {
+        exec_test("bvt/parser/odps-18.txt");
+    }
+
+    @Test
+    public void test_19() throws Exception {
+        exec_test("bvt/parser/odps-19.txt");
+    }
+
+    @Test
+    public void test_20() throws Exception {
+        exec_test("bvt/parser/odps-20.txt");
+    }
+
+    @Test
+    public void test_21() throws Exception {
+        exec_test("bvt/parser/odps-21.txt");
+    }
+
+    @Test
+    public void test_22() throws Exception {
+        exec_test("bvt/parser/odps-22.txt");
+    }
+
+    @Test
+    public void odps_parse() throws Exception {
+        fileTest(0, 999, i -> "bvt/parser/odps/" + i + ".txt");
     }
 
     public void exec_test(String resource) throws Exception {
@@ -82,7 +128,7 @@ public class OdpsResourceTest extends TestCase {
         List<SQLStatement> statementList = parser.parseStatementList();
         SQLStatement stmt = statementList.get(0);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         SchemaStatVisitor visitor = new OdpsSchemaStatVisitor();
         stmt.accept(visitor);

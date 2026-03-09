@@ -1,21 +1,16 @@
 package com.alibaba.druid.sql.parser;
 
-import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.testutil.ParserTestUtils;
 import junit.framework.TestCase;
 
-import java.util.List;
-
 public class LateralViewTest extends TestCase {
-
-    private final static SQLParserFeature[] FORMAT_DEFAULT_FEATURES = {
+    private static final SQLParserFeature[] FORMAT_DEFAULT_FEATURES = {
             SQLParserFeature.KeepComments,
             SQLParserFeature.EnableSQLBinaryOpExprGroup
     };
 
     public String format(String sql) {
-        SQLStatementParser parser = SQLParserUtils.createSQLStatementParser(sql, "hive", FORMAT_DEFAULT_FEATURES);
-        List<SQLStatement> statementList = parser.parseStatementList();
-        return statementList.get(0).toString();
+        return ParserTestUtils.formatFirstStatement(sql, "hive", FORMAT_DEFAULT_FEATURES);
     }
 
     public void test1() {

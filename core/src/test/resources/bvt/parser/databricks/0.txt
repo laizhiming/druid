@@ -1,0 +1,145 @@
+create or replace temp table c as select a from b
+--------------------
+CREATE OR REPLACE TEMPORARY TABLE c
+AS
+SELECT a
+FROM b
+------------------------------------------------------------------------------------------------------------------------
+refresh table mc_power_insight_dm_ngbi_uat.dm_td_institution;
+--------------------
+REFRESH TABLE mc_power_insight_dm_ngbi_uat.dm_td_institution;
+------------------------------------------------------------------------------------------------------------------------
+create or replace temp view c as select a from b
+--------------------
+CREATE OR REPLACE TEMP VIEW c
+AS
+SELECT a
+FROM b
+------------------------------------------------------------------------------------------------------------------------
+create or replace table c as select a from b
+--------------------
+CREATE OR REPLACE TABLE c
+AS
+SELECT a
+FROM b
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ora_tab
+  USING ORACLE
+  OPTIONS (
+    url '<jdbc-url>',
+    dbtable '<table-name>',
+    user '<username>',
+    password '<password>'
+);
+--------------------
+CREATE TABLE IF NOT EXISTS ora_tab
+USING ORACLE
+OPTIONS (
+	'url' = '<jdbc-url>',
+	'dbtable' = '<table-name>',
+	'user' = '<username>',
+	'password' = '<password>'
+);
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE student (id INT, name STRING)
+    ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+    STORED AS TEXTFILE;
+--------------------
+CREATE TABLE student (
+	id INT,
+	name STRING
+)
+ROW FORMAT DELIMITED
+	FIELDS TERMINATED BY ','
+STORED AS TEXTFILE;
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE student (id INT, name STRING, age INT)
+    COMMENT 'this is a comment'
+    STORED AS ORC
+    TBLPROPERTIES ('foo'='bar');
+--------------------
+CREATE TABLE student (
+	id INT,
+	name STRING,
+	age INT
+)
+COMMENT 'this is a comment'
+STORED AS ORC
+TBLPROPERTIES (
+	'foo' = 'bar'
+);
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE student (id INT, name STRING, age INT)
+    STORED AS ORC
+    TBLPROPERTIES ('foo'='bar')
+    COMMENT 'this is a comment';
+--------------------
+CREATE TABLE student (
+	id INT,
+	name STRING,
+	age INT
+)
+COMMENT 'this is a comment'
+STORED AS ORC
+TBLPROPERTIES (
+	'foo' = 'bar'
+);
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE student_copy STORED AS ORC
+    AS SELECT * FROM student;
+--------------------
+CREATE TABLE student_copy
+STORED AS ORC
+AS
+SELECT *
+FROM student;
+------------------------------------------------------------------------------------------------------------------------
+INSERT INTO students PARTITION (student_id = 444444)
+    SELECT name, address FROM persons WHERE name = "Dora Williams";
+--------------------
+INSERT INTO TABLE students PARTITION (student_id=444444)
+SELECT name, address
+FROM persons
+WHERE name = 'Dora Williams';
+------------------------------------------------------------------------------------------------------------------------
+SELECT city, car_model
+FROM dealer
+QUALIFY RANK() OVER (PARTITION BY car_model ORDER BY quantity) = 1;
+--------------------
+SELECT city, car_model
+FROM dealer
+QUALIFY RANK() OVER (PARTITION BY car_model ORDER BY quantity) = 1;
+------------------------------------------------------------------------------------------------------------------------
+SELECT * FROM VALUES(1, 2) AS t1(c1, c2)
+--------------------
+SELECT *
+FROM (VALUES (1, 2)) AS t1 (c1, c2)
+------------------------------------------------------------------------------------------------------------------------
+SELECT * EXCEPT(c2.b, c2.a) FROM VALUES(1, named_struct('a', 2, 'b', 3)) AS t(c1, c2);
+--------------------
+SELECT * EXCEPT(c2.b, c2.a)
+FROM (VALUES (1, named_struct('a', 2, 'b', 3))) AS t (c1, c2);
+------------------------------------------------------------------------------------------------------------------------
+create or replace table mc_tmp_ngbi_uat.tmp_dm_tf_performance_territory_inst_full 
+with tmp1 as (
+select * from t1),
+tmp2 as
+(
+select * from t2
+)
+select a from tmp1 join tmp2 on tmp1.a = tmp2.a;
+--------------------
+CREATE OR REPLACE TABLE mc_tmp_ngbi_uat.tmp_dm_tf_performance_territory_inst_full
+AS
+WITH tmp1 AS (
+		SELECT *
+		FROM t1
+	),
+	tmp2 AS (
+		SELECT *
+		FROM t2
+	)
+SELECT a
+FROM tmp1
+	JOIN tmp2 ON tmp1.a = tmp2.a;
+

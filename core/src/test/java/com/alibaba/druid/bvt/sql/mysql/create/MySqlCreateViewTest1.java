@@ -23,7 +23,6 @@ import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
 import com.alibaba.druid.stat.TableStat.Column;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -37,7 +36,7 @@ public class MySqlCreateViewTest1 extends MysqlTest {
         SQLCreateViewStatement stmt = (SQLCreateViewStatement) statementList.get(0);
 //        print(statementList);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
         stmt.accept(visitor);
@@ -48,7 +47,7 @@ public class MySqlCreateViewTest1 extends MysqlTest {
                         "\tVIEW view_audit_enroll\n" +
                         "AS\n" +
                         "SELECT a.enroll_id AS \"enrollId\"\n" +
-                        "\t, CASE \n" +
+                        "\t, CASE\n" +
                         "\t\tWHEN ((\n" +
                         "\t\t\t\tSELECT audit\n" +
                         "\t\t\t\tFROM actvty_audit\n" +
@@ -58,7 +57,7 @@ public class MySqlCreateViewTest1 extends MysqlTest {
                         "\t\tTHEN '县站已审核'\n" +
                         "\t\tELSE NULL\n" +
                         "\tEND AS \"countyAudit\"\n" +
-                        "\t, CASE \n" +
+                        "\t, CASE\n" +
                         "\t\tWHEN ((\n" +
                         "\t\t\t\tSELECT audit\n" +
                         "\t\t\t\tFROM actvty_audit\n" +
@@ -68,7 +67,7 @@ public class MySqlCreateViewTest1 extends MysqlTest {
                         "\t\tTHEN '市馆已审核'\n" +
                         "\t\tELSE NULL\n" +
                         "\tEND AS \"cityAudit\"\n" +
-                        "\t, CASE \n" +
+                        "\t, CASE\n" +
                         "\t\tWHEN ((\n" +
                         "\t\t\t\tSELECT audit\n" +
                         "\t\t\t\tFROM actvty_audit\n" +
@@ -82,13 +81,13 @@ public class MySqlCreateViewTest1 extends MysqlTest {
                         "GROUP BY a.enroll_id", //
                 SQLUtils.toMySqlString(stmt));
 
-        Assert.assertEquals("create algorithm = UNDEFINED\n" +
+        assertEquals("create algorithm = UNDEFINED\n" +
                         "\tdefiner = 'root'@'localhost'\n" +
                         "\tsql security DEFINER\n" +
                         "\tview view_audit_enroll\n" +
                         "as\n" +
                         "select a.enroll_id as \"enrollId\"\n" +
-                        "\t, case \n" +
+                        "\t, case\n" +
                         "\t\twhen ((\n" +
                         "\t\t\t\tselect audit\n" +
                         "\t\t\t\tfrom actvty_audit\n" +
@@ -98,7 +97,7 @@ public class MySqlCreateViewTest1 extends MysqlTest {
                         "\t\tthen '县站已审核'\n" +
                         "\t\telse null\n" +
                         "\tend as \"countyAudit\"\n" +
-                        "\t, case \n" +
+                        "\t, case\n" +
                         "\t\twhen ((\n" +
                         "\t\t\t\tselect audit\n" +
                         "\t\t\t\tfrom actvty_audit\n" +
@@ -108,7 +107,7 @@ public class MySqlCreateViewTest1 extends MysqlTest {
                         "\t\tthen '市馆已审核'\n" +
                         "\t\telse null\n" +
                         "\tend as \"cityAudit\"\n" +
-                        "\t, case \n" +
+                        "\t, case\n" +
                         "\t\twhen ((\n" +
                         "\t\t\t\tselect audit\n" +
                         "\t\t\t\tfrom actvty_audit\n" +
@@ -127,13 +126,13 @@ public class MySqlCreateViewTest1 extends MysqlTest {
 //        System.out.println("coditions : " + visitor.getConditions());
 //        System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(1, visitor.getTables().size());
-        Assert.assertEquals(3, visitor.getColumns().size());
-        Assert.assertEquals(2, visitor.getConditions().size());
+        assertEquals(1, visitor.getTables().size());
+        assertEquals(3, visitor.getColumns().size());
+        assertEquals(2, visitor.getConditions().size());
 
-        Assert.assertTrue(visitor.getTables().containsKey(new TableStat.Name("actvty_audit")));
+        assertTrue(visitor.getTables().containsKey(new TableStat.Name("actvty_audit")));
 
-        Assert.assertTrue(visitor.getColumns().contains(new Column("actvty_audit", "audit")));
-        Assert.assertTrue(visitor.getColumns().contains(new Column("actvty_audit", "enroll_id")));
+        assertTrue(visitor.getColumns().contains(new Column("actvty_audit", "audit")));
+        assertTrue(visitor.getColumns().contains(new Column("actvty_audit", "enroll_id")));
     }
 }

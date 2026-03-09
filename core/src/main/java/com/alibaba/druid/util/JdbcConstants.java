@@ -69,6 +69,9 @@ public interface JdbcConstants {
     DbType H2 = DbType.h2;
     String H2_DRIVER = "org.h2.Driver";
 
+    DbType LEALONE = DbType.lealone;
+    String LEALONE_DRIVER = "org.lealone.client.jdbc.JdbcDriver";
+
     DbType DM = DbType.dm;
     String DM_DRIVER = "dm.jdbc.driver.DmDriver";
 
@@ -137,10 +140,15 @@ public interface JdbcConstants {
     String KDB_DRIVER = "com.inspur.jdbc.KdDriver";
 
     /**
-     * Aliyun PolarDB
+     * Alibaba Cloud PolarDB-Oracle 1.0
      */
     DbType POLARDB = DbType.polardb;
     String POLARDB_DRIVER = "com.aliyun.polardb.Driver";
+    /**
+     * Alibaba Cloud PolarDB-Oracle 2.0
+     */
+    DbType POLARDB2 = DbType.polardb2;
+    String POLARDB2_DRIVER = "com.aliyun.polardb2.Driver";
     /**
      * GreenPlum
      */
@@ -164,4 +172,8 @@ public interface JdbcConstants {
     String GBASE8S_DRIVER = "com.gbasedbt.jdbc.Driver";
 
     String OPENGAUSS_DRIVER = "org.opengauss.Driver";
+    String SUNDB = "sundb"; //科蓝数s据
+    String SUNDB_DRIVER = "csii.sundb.jdbc.SundbDriver";
+
+    String POLARDBX_DRIVER = "com.alibaba.polardbx.Driver";
 }

@@ -6,6 +6,7 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.parser.ParserException;
 import com.alibaba.druid.sql.parser.SQLParserUtils;
 import com.alibaba.druid.sql.parser.SQLStatementParser;
+import com.alibaba.druid.sql.parser.Token;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -21,8 +22,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class SQLResourceTest {
-    protected final static String DELIMITER_LONG = "------------------------------------------------------------------------------------------------------------------------";
-    protected final static String DELIMITER_SHORT = "--------------------";
+    protected static final String DELIMITER_LONG = "------------------------------------------------------------------------------------------------------------------------";
+    protected static final String DELIMITER_SHORT = "--------------------";
 
     protected final DbType dbType;
 
@@ -50,6 +51,9 @@ public class SQLResourceTest {
         Arrays.sort(files, Comparator.comparing(File::getName));
 
         for (File file : files) {
+            if (file.getName().equals(".DS_Store")) {
+                continue;
+            }
             System.out.println(DELIMITER_LONG);
             System.out.println("## BEGIN parse sql, file " + file);
             System.out.println(DELIMITER_LONG);
@@ -111,15 +115,18 @@ public class SQLResourceTest {
             assertEquals(2, parts.length);
 
             String sql = parts[0].trim();
-            String expected = parts[1].trim().replaceAll("\r\n","\n");
+            String expected = parts[1].trim().replaceAll("\r\n", "\n");
 
             System.out.println();
             System.out.println(sql);
             System.out.println();
-            System.out.println(DELIMITER_SHORT +  " [" + (i + 1) + "/" + tests.length + "] " + dbType);
+            System.out.println(DELIMITER_SHORT + " " + file.getName() + " [" + (i + 1) + "/" + tests.length + "] " + dbType);
             System.out.println();
 
-            String result = SQLUtils.format(sql, dbType);
+            SQLStatementParser parser = SQLParserUtils.createSQLStatementParser(sql, dbType);
+            SQLStatement stmt = parser.parseStatement();
+            assertEquals(parser.getLexer().info(), Token.EOF, parser.getLexer().token());
+            String result = SQLUtils.toSQLString(stmt, dbType).trim();
             assertEquals(expected, result);
 
             System.out.println(result);

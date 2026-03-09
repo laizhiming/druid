@@ -24,7 +24,6 @@ import com.alibaba.druid.sql.parser.SQLParserFeature;
 
 import java.util.List;
 
-
 public class MySqlSelectTest_214 extends MysqlTest {
     public void test_0() throws Exception {
         String sql = "SELECT numbers, animals, n, a\n" +
@@ -46,14 +45,14 @@ public class MySqlSelectTest_214 extends MysqlTest {
 
         assertEquals("SELECT numbers, animals, n, a\n" +
                 "FROM (\n" +
-                "\tVALUES (ARRAY[2, 5], ARRAY['dog', 'cat', 'bird']), \n" +
+                "\tVALUES (ARRAY[2, 5], ARRAY['dog', 'cat', 'bird']),\n" +
                 "\t(ARRAY[7, 8, 9], ARRAY['cow', 'pig'])\n" +
                 ") AS x (numbers, animals)\n" +
                 "\tCROSS JOIN UNNEST(numbers, animals) AS t (n, a);", stmt.toString());
 
         assertEquals("select numbers, animals, n, a\n" +
                 "from (\n" +
-                "\tvalues (ARRAY[2, 5], ARRAY['dog', 'cat', 'bird']), \n" +
+                "\tvalues (ARRAY[2, 5], ARRAY['dog', 'cat', 'bird']),\n" +
                 "\t(ARRAY[7, 8, 9], ARRAY['cow', 'pig'])\n" +
                 ") AS x (numbers, animals)\n" +
                 "\tcross join unnest(numbers, animals) as t (n, a);", stmt.clone().toLowerCaseString());

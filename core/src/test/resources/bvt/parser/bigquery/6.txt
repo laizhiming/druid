@@ -1,0 +1,40 @@
+/*
+ this is multiple comment
+*/
+select
+service_area_name,
+driver_id,
+segment,
+target,
+payout_amt,
+points avg_pts,
+from postcte
+where 
+-- this is single comment
+prepost = '2. post'
+# group by 1,2,3,4,5
+order by 1,2,3
+--------------------
+/*
+ this is multiple comment
+*/
+SELECT service_area_name, driver_id, segment, target, payout_amt
+	, points AS avg_pts
+FROM postcte
+WHERE -- this is single comment
+prepost = '2. post' # group by 1,2,3,4,5
+ORDER BY 1, 2, 3
+------------------------------------------------------------------------------------------------------------------------
+SELECT EXTRACT(hour FROM booking_timestamp AT TIME ZONE 'Asia/Jakarta')
+--------------------
+SELECT EXTRACT(hour FROM booking_timestamp AT TIME ZONE 'Asia/Jakarta')
+------------------------------------------------------------------------------------------------------------------------
+SELECT x from customer c left join attachments at on c.id = at.company_id
+--------------------
+SELECT x
+FROM customer c
+	LEFT JOIN attachments at ON c.id = at.company_id
+------------------------------------------------------------------------------------------------------------------------
+SELECT EXTRACT(hour FROM booking_timestamp)
+--------------------
+SELECT EXTRACT(hour FROM booking_timestamp)

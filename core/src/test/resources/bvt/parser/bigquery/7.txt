@@ -1,0 +1,35 @@
+create table t as (
+with tmp as
+(
+ select col1,col2,col3, from t1
+)
+select * from tmp
+)
+--------------------
+CREATE TABLE t
+AS
+WITH tmp AS (
+		SELECT col1, col2, col3
+		FROM t1
+	)
+SELECT *
+FROM tmp
+------------------------------------------------------------------------------------------------------------------------
+select 
+service_area_id, service_area_name
+from `d-g-id-p.location.dim_service_area`
+--------------------
+SELECT service_area_id, service_area_name
+FROM `d-g-id-p`.location.dim_service_area
+------------------------------------------------------------------------------------------------------------------------
+DECLARE start_date DEFAULT DATE('2024-01-01')
+--------------------
+DECLARE start_date DEFAULT DATE('2024-01-01')
+------------------------------------------------------------------------------------------------------------------------
+DECLARE int1 INT64
+--------------------
+DECLARE int1 INT64
+------------------------------------------------------------------------------------------------------------------------
+DECLARE x, y, z INT64 DEFAULT 0
+--------------------
+DECLARE x, y, z INT64 DEFAULT 0

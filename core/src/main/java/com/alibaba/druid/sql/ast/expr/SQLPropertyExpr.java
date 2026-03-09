@@ -25,10 +25,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-public final class SQLPropertyExpr extends SQLExprImpl implements SQLName, SQLReplaceable, Comparable<SQLPropertyExpr> {
-    private SQLExpr owner;
+public class SQLPropertyExpr extends SQLExprImpl implements SQLName, SQLReplaceable, Comparable<SQLPropertyExpr> {
+    protected SQLExpr owner;
     private String splitString;
-    private String name;
+    protected String name;
 
     protected long nameHashCod64;
     protected long hashCode64;
@@ -291,7 +291,7 @@ public final class SQLPropertyExpr extends SQLExprImpl implements SQLName, SQLRe
             final SQLExpr expr = selectItem.getExpr();
             if (expr instanceof SQLIdentifierExpr) {
                 return ((SQLIdentifierExpr) expr).getResolvedColumn();
-            } else if (expr instanceof SQLPropertyExpr) {
+            } else if (expr instanceof SQLPropertyExpr && expr != this) {
                 return ((SQLPropertyExpr) expr).getResolvedColumn();
             }
         }
@@ -340,14 +340,15 @@ public final class SQLPropertyExpr extends SQLExprImpl implements SQLName, SQLRe
     }
 
     public SQLDataType computeDataType() {
-        if (resolvedColumn instanceof SQLColumnDefinition
-                && resolvedColumn != null) {
+        if (resolvedColumn instanceof SQLColumnDefinition) {
             return ((SQLColumnDefinition) resolvedColumn).getDataType();
         }
 
-        if (resolvedColumn instanceof SQLSelectItem
-                && resolvedColumn != null) {
-            return ((SQLSelectItem) resolvedColumn).computeDataType();
+        if (resolvedColumn instanceof SQLSelectItem) {
+            if (((SQLSelectItem) resolvedColumn).getExpr() != this) {
+                return ((SQLSelectItem) resolvedColumn).computeDataType();
+            }
+            return null;
         }
 
         if (resolvedOwnerObject == null) {
@@ -375,7 +376,36 @@ public final class SQLPropertyExpr extends SQLExprImpl implements SQLName, SQLRe
             }
         } else if (resolvedOwnerObject instanceof SQLExprTableSource) {
             SQLExpr expr = ((SQLExprTableSource) resolvedOwnerObject).getExpr();
-            if (expr != null) {
+            if (expr instanceof SQLName) {
+                String referencedTableName = ((SQLName) expr).getSimpleName();
+
+                SQLSelect select = null;
+                for (SQLObject parent = resolvedOwnerObject.getParent(); parent != null; parent = parent.getParent()) {
+                    if (parent instanceof SQLSelect) {
+                        select = (SQLSelect) parent;
+                        break;
+                    }
+                }
+                if (select != null) {
+                    SQLWithSubqueryClause.Entry queryEntry = select.findWithSubQueryEntry(referencedTableName);
+                    if (queryEntry != null) {
+                        SQLSelectQueryBlock firstQueryBlock = queryEntry.getSubQuery().getFirstQueryBlock();
+                        if (firstQueryBlock != null) {
+                            return firstQueryBlock.findSelectItemAndComputeDataType(this.name);
+                        }
+                        // ignore
+                    }
+
+                    for (SQLObject parent = select.getParent(); parent != null; parent = parent.getParent()) {
+                        if (parent instanceof SQLSelect) {
+                            queryEntry = ((SQLSelect) parent).findWithSubQueryEntry(referencedTableName);
+                            if (queryEntry != null) {
+                                return queryEntry.getSubQuery().findSelectItemAndComputeDataType(this.name);
+                            }
+                            break;
+                        }
+                    }
+                }
                 // skip
             }
         }

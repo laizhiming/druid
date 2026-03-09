@@ -16,28 +16,29 @@
 package com.alibaba.druid.sql.dialect.sqlserver.ast.stmt;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.ast.SQLTop;
 import com.alibaba.druid.sql.ast.statement.SQLUpdateStatement;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerOutput;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerStatement;
-import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
 import com.alibaba.druid.sql.dialect.sqlserver.visitor.SQLServerASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
 public class SQLServerUpdateStatement extends SQLUpdateStatement implements SQLServerStatement {
-    private SQLServerTop top;
+    private SQLTop top;
     private SQLServerOutput output;
 
     public SQLServerUpdateStatement() {
         super(DbType.sqlserver);
     }
 
-    public SQLServerTop getTop() {
+    public SQLTop getTop() {
         return top;
     }
 
-    public void setTop(SQLServerTop top) {
+    public void setTop(SQLTop top) {
         if (top != null) {
             top.setParent(this);
+            top.setParentheses(true);
         }
         this.top = top;
     }
@@ -54,8 +55,12 @@ public class SQLServerUpdateStatement extends SQLUpdateStatement implements SQLS
     }
 
     @Override
-    protected void accept0(SQLASTVisitor visitor) {
-        this.accept0((SQLServerASTVisitor) visitor);
+    public void accept0(SQLASTVisitor visitor) {
+        if (visitor instanceof SQLServerASTVisitor) {
+            accept0((SQLServerASTVisitor) visitor);
+        } else {
+            super.accept0(visitor);
+        }
     }
 
     @Override

@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.MysqlTest;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 
-
 public class MySqlSelectTest_292_lateral extends MysqlTest {
     public void test_0() throws Exception {
         String sql = "SELECT * FROM t CROSS JOIN LATERAL (VALUES 1) ";
@@ -80,13 +79,11 @@ public class MySqlSelectTest_292_lateral extends MysqlTest {
 
         assertEquals("SELECT numbers, n, a\n" +
                 "FROM (\n" +
-                "\tVALUES (ARRAY[2, 5]), \n" +
+                "\tVALUES (ARRAY[2, 5]),\n" +
                 "\t(ARRAY[7, 8, 9])\n" +
                 ") AS x (numbers)\n" +
                 "\tCROSS JOIN UNNEST(numbers) WITH ORDINALITY AS t (n, a);", stmt.toString());
 
         System.out.println(stmt.toString());
     }
-
-
 }

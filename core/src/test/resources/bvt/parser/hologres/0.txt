@@ -1,0 +1,129 @@
+select []
+--------------------
+SELECT ARRAY[]
+------------------------------------------------------------------------------------------------------------------------
+select cast(($0 + interval $1 week) as date)
+--------------------
+SELECT CAST(($0 + INTERVAL '$1' WEEK) AS date)
+------------------------------------------------------------------------------------------------------------------------
+select a from test
+-- origin
+-- ${if(gFinPeriod="季度","/*","")}
+-- origin end
+-- new
+/*
+-- new end
+where 1=1
+-- origin
+-- ${if(gFinPeriod="季度","","*/")}
+-- origin end
+-- new
+*/
+--new end
+--------------------
+SELECT a
+FROM test -- origin
+-- ${if(gFinPeriod="季度","/*","")}
+-- origin end
+-- new
+
+/*
+-- new end
+where 1=1
+-- origin
+-- ${if(gFinPeriod="季度","","*/")}
+-- origin end
+-- new
+*/
+-- new end
+------------------------------------------------------------------------------------------------------------------------
+SELECT sum(ret_amount) AS '应收金额'
+FROM test.test
+GROUP BY a ORDER BY '应收金额' DESC;
+--------------------
+SELECT sum(ret_amount) AS "应收金额"
+FROM test.test
+GROUP BY a
+ORDER BY "应收金额" DESC;
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS my_partitioned_table (
+id INT,
+name text,
+value FLOAT ,
+arr ARRAY<INT>,
+dt TEXT  not null,
+region TEXT not null
+)
+LOGICAL PARTITION BY LIST (dt, region) 
+WITH (
+    orientation = 'column',
+    partition_require_filter = FALSE 
+);
+--------------------
+CREATE TABLE IF NOT EXISTS my_partitioned_table (
+	id INT,
+	name text,
+	value FLOAT,
+	arr INT[],
+	dt TEXT NOT NULL,
+	region TEXT NOT NULL
+)
+LOGICAL PARTITION BY LIST (dt, region)
+WITH (
+	orientation = 'column',
+	partition_require_filter = false
+);
+------------------------------------------------------------------------------------------------------------------------
+CREATE TABLE public.tb0 (
+    id text NOT NULL,
+    name text NOT NULL,
+    class text NOT NULL,
+    in_time timestamptz NOT NULL,
+    PRIMARY KEY (id)
+)
+WITH (
+    orientation = 'column',
+    clustering_key = 'class',
+    bitmap_columns = 'name',
+  	event_time_column = 'in_time'
+);
+--------------------
+CREATE TABLE public.tb0 (
+	id text NOT NULL,
+	name text NOT NULL,
+	class text NOT NULL,
+	in_time timestamptz NOT NULL,
+	PRIMARY KEY (id)
+)
+WITH (
+	orientation = 'column',
+	clustering_key = 'class',
+	bitmap_columns = 'name',
+	event_time_column = 'in_time'
+);
+------------------------------------------------------------------------------------------------------------------------
+ALTER SCHEMA oldschema RENAME TO newschema;
+--------------------
+ALTER SCHEMA oldschema RENAME TO newschema;
+------------------------------------------------------------------------------------------------------------------------
+select current_schema();
+--------------------
+SELECT current_schema();
+------------------------------------------------------------------------------------------------------------------------
+create table blink_demo (id text);
+--------------------
+CREATE TABLE blink_demo (
+	id text
+);
+------------------------------------------------------------------------------------------------------------------------
+create schema schemaname
+--------------------
+CREATE SCHEMA schemaname
+------------------------------------------------------------------------------------------------------------------------
+set search_path to schemaname
+--------------------
+SET search_path TO schemaname
+------------------------------------------------------------------------------------------------------------------------
+select DATEADD(DATE '1970-01-01', 14238, 'dd')
+--------------------
+SELECT DATEADD(DATE '1970-01-01', 14238, 'dd')

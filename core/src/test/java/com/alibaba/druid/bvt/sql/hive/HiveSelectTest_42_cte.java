@@ -61,23 +61,23 @@ public class HiveSelectTest_42_cte extends TestCase {
                 "\t, if(ver IS NOT NULL, ver, 'all') AS dycg_ver\n" +
                 "\t, if(machine_dc IS NOT NULL, machine_dc, 'all') AS machine_dc\n" +
                 "\t, if(game_id IS NOT NULL, game_id, 'all') AS game_id\n" +
-                "\t, sum(CASE \n" +
+                "\t, sum(CASE\n" +
                 "\t\tWHEN current_step = 6\n" +
                 "\t\t\tOR current_step = 7\n" +
                 "\t\tTHEN 1\n" +
                 "\t\tELSE 0\n" +
                 "\tEND) AS reach_game_process_cnt\n" +
-                "\t, sum(CASE \n" +
+                "\t, sum(CASE\n" +
                 "\t\tWHEN current_step = 5\n" +
                 "\t\t\tOR current_step = 6\n" +
                 "\t\t\tOR current_step = 7\n" +
                 "\t\tTHEN 1\n" +
                 "\t\tELSE 0\n" +
                 "\tEND) AS tot_reach_game_process_cnt\n" +
-                "\t, round(1 - (sum(CASE \n" +
+                "\t, round(1 - (sum(CASE\n" +
                 "\t\tWHEN current_step = 5 THEN 1\n" +
                 "\t\tELSE 0\n" +
-                "\tEND) / sum(CASE \n" +
+                "\tEND) / sum(CASE\n" +
                 "\t\tWHEN current_step = 5\n" +
                 "\t\t\tOR current_step = 6\n" +
                 "\t\t\tOR current_step = 7\n" +
@@ -89,6 +89,5 @@ public class HiveSelectTest_42_cte extends TestCase {
                 "FROM dycg_perform_startgametaketimelog\n" +
                 "GROUP BY app_id, ver, machine_dc, game_id\n" +
                 "\tGROUPING SETS ((app_id), (app_id, ver), (app_id, ver, machine_dc), (app_id, ver, game_id), (app_id, machine_dc), (app_id, machine_dc, game_id), (app_id, game_id), (app_id, ver, machine_dc, game_id))", stmt.toString());
-
     }
 }

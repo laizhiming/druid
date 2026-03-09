@@ -21,7 +21,6 @@ import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.util.JdbcConstants;
 
-
 public class MySqlSelectTest_with_20433301 extends MysqlTest {
     public void test_0() throws Exception {
         String sql = "WITH total AS(\n" +
@@ -58,7 +57,6 @@ public class MySqlSelectTest_with_20433301 extends MysqlTest {
                 " where fcst.week_day= 1\n" +
                 " order by detail.scheduleCnt desc";
 
-
         SQLSelectStatement stmt = (SQLSelectStatement) SQLUtils.parseSingleStatement(sql, JdbcConstants.MYSQL);
 
         assertEquals("WITH total AS (\n" +
@@ -72,7 +70,7 @@ public class MySqlSelectTest_with_20433301 extends MysqlTest {
                 "\t\t\tAND scd_is_valid = 1\n" +
                 "\t\t\tAND scd_status = 4\n" +
                 "\t\tGROUP BY cinema_id\n" +
-                "\t), \n" +
+                "\t),\n" +
                 "\tdetail AS (\n" +
                 "\t\tSELECT show_id, cinema_id, count(1) AS scheduleCnt\n" +
                 "\t\t\t, sum(hall_seat_cnt) AS hall_seat_cnt, sum(sold_seat_cnt) AS sold_seat_cnt\n" +
@@ -95,10 +93,7 @@ public class MySqlSelectTest_with_20433301 extends MysqlTest {
                 "WHERE fcst.week_day = 1\n" +
                 "ORDER BY detail.scheduleCnt DESC", stmt.toString());
 
-
         MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
         stmt.accept(visitor);
     }
-
-
 }

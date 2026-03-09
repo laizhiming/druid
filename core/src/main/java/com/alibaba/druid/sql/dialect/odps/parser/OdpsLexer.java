@@ -16,19 +16,75 @@
 package com.alibaba.druid.sql.dialect.odps.parser;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.dialect.hive.parser.HiveLexer;
 import com.alibaba.druid.sql.parser.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.alibaba.druid.sql.parser.CharTypes.*;
+import static com.alibaba.druid.sql.parser.DialectFeature.LexerFeature.*;
+import static com.alibaba.druid.sql.parser.DialectFeature.ParserFeature.*;
 import static com.alibaba.druid.sql.parser.LayoutCharacters.EOI;
 
-public class OdpsLexer extends Lexer {
-    public static final Keywords DEFAULT_ODPS_KEYWORDS;
-
+public class OdpsLexer extends HiveLexer {
+    static final Keywords ODPS_KEYWORDS;
+    static final DialectFeature ODPS_FEATURE = new DialectFeature(
+            Arrays.asList(
+                    ScanSQLTypeBlockComment,
+                    ScanSQLTypeWithSemi,
+                    ScanSQLTypeWithFunction,
+                    ScanSQLTypeWithBegin,
+                    ScanSQLTypeWithAt,
+                    ScanVariableAt,
+                    ScanVariableMoveToSemi,
+                    ScanVariableSkipIdentifiers,
+                    ScanNumberCommonProcess,
+                    ScanHiveCommentDoubleSpace,
+                    QueryRestSemi,
+                    JoinAt,
+                    UserDefinedJoin,
+                    TwoConsecutiveUnion,
+                    RewriteGroupByCubeRollupToFunction,
+                    PrimaryTwoConsecutiveSet,
+                    ParseAllIdentifier,
+                    PrimaryRestCommaAfterLparen,
+                    InRestSpecificOperation,
+                    ParseAssignItemEqSemiReturn,
+                    ParseAssignItemEqeq,
+                    ParseStatementListLparenContinue,
+                    ParseRevokeFromUser,
+                    ParseCreateSql,
+                    TableAliasConnectWhere,
+                    TableAliasTable,
+                    TableAliasBetween,
+                    TableAliasRest,
+                    AliasLiteralFloat,
+                    ScanSQLTypeWithFrom,
+                    NextTokenColon,
+                    ScanAliasU,
+                    JoinRightTableFrom,
+                    GroupByAll,
+                    SQLDateExpr,
+                    ParseAssignItemRparenCommaSetReturn,
+                    TableAliasLock,
+                    TableAliasPartition,
+                    AsSkip,
+                    AsSequence,
+                    AsDatabase,
+                    AsDefault
+            ),
+            Arrays.asList(
+                    ParseStatementListSelectUnsupportedSyntax,
+                    ScanNumberPrefixB,
+                    ScanAliasU,
+                    AcceptUnion,
+                    PrimaryBangBangSupport
+            )
+    );
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
@@ -46,18 +102,17 @@ public class OdpsLexer extends Lexer {
         map.put("DIV", Token.DIV);
         map.put("LATERAL", Token.LATERAL);
         map.put("QUALIFY", Token.QUALIFY);
+        map.put("MATCHED", Token.MATCHED);
         map.put("；", Token.SEMI);
 
-        DEFAULT_ODPS_KEYWORDS = new Keywords(map);
+        ODPS_KEYWORDS = new Keywords(map);
     }
-
     public OdpsLexer(String input, SQLParserFeature... features) {
         super(input);
 
         init();
 
         dbType = DbType.odps;
-        super.keywords = DEFAULT_ODPS_KEYWORDS;
         this.skipComment = true;
         this.keepComments = false;
 
@@ -66,24 +121,9 @@ public class OdpsLexer extends Lexer {
         }
     }
 
-    public OdpsLexer(String input, boolean skipComment, boolean keepComments) {
-        super(input, skipComment);
-
-        init();
-
-        dbType = DbType.odps;
-        this.skipComment = skipComment;
-        this.keepComments = keepComments;
-        super.keywords = DEFAULT_ODPS_KEYWORDS;
-    }
-
-    public OdpsLexer(String input, CommentHandler commentHandler) {
-        super(input, commentHandler);
-
-        init();
-
-        dbType = DbType.odps;
-        super.keywords = DEFAULT_ODPS_KEYWORDS;
+    @Override
+    protected Keywords loadKeywords() {
+        return ODPS_KEYWORDS;
     }
 
     private void init() {
@@ -99,10 +139,6 @@ public class OdpsLexer extends Lexer {
                 ch = charAt(++pos);
             }
         }
-    }
-
-    public void scanComment() {
-        scanHiveComment();
     }
 
     public void scanIdentifier() {
@@ -180,7 +216,7 @@ public class OdpsLexer extends Lexer {
                 break;
             }
 
-            if (ch == '；') {
+            if (ch == ';') {
                 break;
             }
 
@@ -262,7 +298,8 @@ public class OdpsLexer extends Lexer {
         scanVariable();
     }
 
-    protected final void scanString() {
-        scanString2();
+    @Override
+    protected void initDialectFeature() {
+        this.dialectFeature = ODPS_FEATURE;
     }
 }

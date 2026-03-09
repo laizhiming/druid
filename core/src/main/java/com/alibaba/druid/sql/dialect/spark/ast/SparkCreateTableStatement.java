@@ -8,9 +8,9 @@ import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLObject;
 import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
-import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
 import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
-import com.alibaba.druid.sql.dialect.spark.visitor.SparkVisitor;
+import com.alibaba.druid.sql.dialect.hive.stmt.HiveCreateTableStatement;
+import com.alibaba.druid.sql.dialect.spark.visitor.SparkASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ import java.util.Map;
  * @author peiheng.qph
  * @version $Id: AntsparkCreateTableStatement.java, v 0.1 2018年09月14日 15:02 peiheng.qph Exp $
  */
-public class SparkCreateTableStatement extends SQLCreateTableStatement {
+public class SparkCreateTableStatement extends HiveCreateTableStatement {
     protected List<SQLAssignItem> mappedBy = new ArrayList<SQLAssignItem>(1);
     protected List<SQLExpr> skewedBy = new ArrayList<SQLExpr>();
     protected List<SQLExpr> skewedByOn = new ArrayList<SQLExpr>();
@@ -73,14 +73,14 @@ public class SparkCreateTableStatement extends SQLCreateTableStatement {
     }
 
     protected void accept0(SQLASTVisitor v) {
-        if (v instanceof SparkVisitor) {
-            accept0((SparkVisitor) v);
+        if (v instanceof SparkASTVisitor) {
+            accept0((SparkASTVisitor) v);
             return;
         }
         super.accept0(v);
     }
 
-    protected void accept0(SparkVisitor v) {
+    protected void accept0(SparkASTVisitor v) {
         if (v.visit(this)) {
             acceptChild(v);
         }

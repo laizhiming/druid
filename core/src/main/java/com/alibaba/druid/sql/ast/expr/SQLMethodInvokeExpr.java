@@ -28,10 +28,12 @@ import java.util.Map;
 
 public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, Serializable {
     private static final long serialVersionUID = 1L;
+    private boolean removeBrackets;
 
     protected final List<SQLExpr> arguments = new ArrayList<SQLExpr>();
     protected String methodName;
     protected long methodNameHashCode64;
+    protected long hashCode64;
     protected SQLExpr owner;
     protected SQLExpr from;
     protected SQLExpr using;
@@ -40,26 +42,31 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
     protected transient SQLDataType resolvedReturnDataType;
 
     public SQLMethodInvokeExpr() {
+        this.removeBrackets = false;
     }
 
     public SQLMethodInvokeExpr(String methodName) {
         this.methodName = methodName;
+        this.removeBrackets = false;
     }
 
     public SQLMethodInvokeExpr(SQLIdentifierExpr methodName) {
         this.methodName = methodName.name;
         this.methodNameHashCode64 = methodName.hashCode64;
         this.setSource(methodName.getSourceLine(), methodName.getSourceColumn());
+        this.removeBrackets = false;
     }
 
     public SQLMethodInvokeExpr(String methodName, long methodNameHashCode64) {
         this.methodName = methodName;
         this.methodNameHashCode64 = methodNameHashCode64;
+        this.removeBrackets = false;
     }
 
     public SQLMethodInvokeExpr(String methodName, SQLExpr owner) {
         this.methodName = methodName;
         setOwner(owner);
+        this.removeBrackets = false;
     }
 
     public SQLMethodInvokeExpr(String methodName, SQLExpr owner, SQLExpr... params) {
@@ -68,6 +75,7 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
         for (SQLExpr param : params) {
             this.addArgument(param);
         }
+        this.removeBrackets = false;
     }
 
     public SQLMethodInvokeExpr(String methodName, SQLExpr owner, List<SQLExpr> params) {
@@ -76,6 +84,7 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
         for (SQLExpr param : params) {
             this.addArgument(param);
         }
+        this.removeBrackets = false;
     }
 
     public long methodNameHashCode64() {
@@ -84,6 +93,33 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
             methodNameHashCode64 = FnvHash.hashCode64(methodName);
         }
         return methodNameHashCode64;
+    }
+
+    public long hashCode64() {
+        if (hashCode64 == 0) {
+            computeHashCode64();
+        }
+
+        return hashCode64;
+    }
+
+    protected void computeHashCode64() {
+        long hash;
+        if (owner instanceof SQLName) {
+            hash = ((SQLName) owner).hashCode64();
+
+            hash ^= '.';
+            hash *= FnvHash.PRIME;
+        } else if (owner == null) {
+            hash = FnvHash.BASIC;
+        } else {
+            hash = FnvHash.fnv1a_64_lower(owner.toString());
+
+            hash ^= '.';
+            hash *= FnvHash.PRIME;
+        }
+        hash = FnvHash.hashCode64(hash, methodName);
+        hashCode64 = hash;
     }
 
     public String getMethodName() {
@@ -115,6 +151,13 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
         this.arguments.set(i, arg);
     }
 
+    public SQLExpr getArgument(int i) {
+        if (i >= 0 && i < this.arguments.size()) {
+            return this.arguments.get(i);
+        }
+        return null;
+    }
+
     /**
      * deprecated, instead of addArgument
      *
@@ -132,6 +175,12 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
             arg.setParent(this);
         }
         this.arguments.add(arg);
+    }
+
+    public void addArguments(List<SQLExpr> args) {
+        for (SQLExpr arg : args) {
+            addArgument(arg);
+        }
     }
 
     public SQLExpr getOwner() {
@@ -308,6 +357,7 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
     }
 
     public void cloneTo(SQLMethodInvokeExpr x) {
+        super.cloneTo(x);
         x.methodName = methodName;
 
         if (owner != null) {
@@ -343,6 +393,7 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
                 x.putAttribute(key, value);
             }
         }
+        x.setRemoveBrackets(removeBrackets);
     }
 
     @Override
@@ -578,5 +629,13 @@ public class SQLMethodInvokeExpr extends SQLExprImpl implements SQLReplaceable, 
             x.setParent(this);
         }
         this.content = x;
+    }
+
+    public boolean isRemoveBrackets() {
+        return removeBrackets;
+    }
+
+    public void setRemoveBrackets(boolean removeBrackets) {
+        this.removeBrackets = removeBrackets;
     }
 }

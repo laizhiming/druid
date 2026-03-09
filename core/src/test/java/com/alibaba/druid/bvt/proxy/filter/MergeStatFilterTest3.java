@@ -15,16 +15,13 @@
  */
 package com.alibaba.druid.bvt.proxy.filter;
 
+import com.alibaba.druid.pool.DruidDataSource;
+import com.alibaba.druid.util.Utils;
+import junit.framework.TestCase;
+
 import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.Statement;
-
-import junit.framework.TestCase;
-
-import org.junit.Assert;
-
-import com.alibaba.druid.pool.DruidDataSource;
-import com.alibaba.druid.util.Utils;
 
 public class MergeStatFilterTest3 extends TestCase {
     private DruidDataSource dataSource;
@@ -41,8 +38,8 @@ public class MergeStatFilterTest3 extends TestCase {
     }
 
     public void test_merge() throws Exception {
-        String sqllist = Utils.read(new InputStreamReader(this.getClass().getResourceAsStream("/bvt/parser/postgresql.txt")));
-        String[] ss = sqllist.split("--");
+        String sqllist = Utils.read(new InputStreamReader(this.getClass().getResourceAsStream("/bvt/parser/postgresql/16.txt")));
+        String[] ss = sqllist.split("--------------------");
         for (String sql : ss) {
             Connection conn = dataSource.getConnection();
             Statement stmt = conn.createStatement();
@@ -51,11 +48,8 @@ public class MergeStatFilterTest3 extends TestCase {
             conn.close();
         }
 
-
-        Assert.assertEquals(1, dataSource.getDataSourceStat().getSqlStatMap()
+        assertEquals(1, dataSource.getDataSourceStat().getSqlStatMap()
                 .size());
         System.out.println(dataSource.getDataSourceStat().getSqlStatMap().keySet().iterator().next());
-
     }
-
 }

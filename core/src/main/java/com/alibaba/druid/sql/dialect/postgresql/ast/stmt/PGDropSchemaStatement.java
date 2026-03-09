@@ -15,24 +15,36 @@
  */
 package com.alibaba.druid.sql.dialect.postgresql.ast.stmt;
 
+import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLStatementImpl;
-import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.statement.SQLDropStatement;
 import com.alibaba.druid.sql.dialect.postgresql.visitor.PGASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PGDropSchemaStatement extends SQLStatementImpl implements PGSQLStatement, SQLDropStatement {
-    private SQLIdentifierExpr schemaName;
+    private SQLName schemaName;
+    private List<SQLName> multipleNames = new ArrayList<>();
     private boolean ifExists;
     private boolean cascade;
     private boolean restrict;
 
-    public SQLIdentifierExpr getSchemaName() {
-        return schemaName;
+    public SQLName getSchemaName() {
+        return this.schemaName;
     }
 
-    public void setSchemaName(SQLIdentifierExpr schemaName) {
+    public void setSchemaName(SQLName schemaName) {
         this.schemaName = schemaName;
+    }
+
+    public List<SQLName> getMultipleNames() {
+        return this.multipleNames;
+    }
+
+    public void setMultipleNames(List<SQLName> multipleNames) {
+        this.multipleNames = multipleNames;
     }
 
     public boolean isIfExists() {
@@ -60,7 +72,9 @@ public class PGDropSchemaStatement extends SQLStatementImpl implements PGSQLStat
     }
 
     protected void accept0(SQLASTVisitor visitor) {
-        accept0((PGASTVisitor) visitor);
+        if (visitor instanceof PGASTVisitor) {
+            accept0((PGASTVisitor) visitor);
+        }
     }
 
     @Override

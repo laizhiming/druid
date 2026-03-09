@@ -16,17 +16,17 @@
 package com.alibaba.druid.sql.dialect.sqlserver.ast.stmt;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.ast.SQLTop;
 import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerObject;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerOutput;
-import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
 import com.alibaba.druid.sql.dialect.sqlserver.visitor.SQLServerASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
 public class SQLServerInsertStatement extends SQLInsertStatement implements SQLServerObject {
     private boolean defaultValues;
 
-    private SQLServerTop top;
+    private SQLTop top;
 
     private SQLServerOutput output;
 
@@ -46,8 +46,12 @@ public class SQLServerInsertStatement extends SQLInsertStatement implements SQLS
     }
 
     @Override
-    protected void accept0(SQLASTVisitor visitor) {
-        this.accept0((SQLServerASTVisitor) visitor);
+    public void accept0(SQLASTVisitor v) {
+        if (v instanceof SQLServerASTVisitor) {
+            accept0((SQLServerASTVisitor) v);
+        } else {
+            super.accept0(v);
+        }
     }
 
     @Override
@@ -80,11 +84,15 @@ public class SQLServerInsertStatement extends SQLInsertStatement implements SQLS
         this.output = output;
     }
 
-    public SQLServerTop getTop() {
+    public SQLTop getTop() {
         return top;
     }
 
-    public void setTop(SQLServerTop top) {
+    public void setTop(SQLTop top) {
+        if (top != null) {
+            top.setParent(this);
+            top.setParentheses(true);
+        }
         this.top = top;
     }
 

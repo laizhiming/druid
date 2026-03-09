@@ -37,11 +37,14 @@ public class OdpsCreateTableParser extends SQLCreateTableParser {
         super(exprParser);
     }
 
-    public SQLCreateTableStatement parseCreateTable(boolean acceptCreate) {
+    public SQLCreateTableStatement parseCreateTable() {
         OdpsCreateTableStatement stmt = new OdpsCreateTableStatement();
 
-        if (acceptCreate) {
-            accept(Token.CREATE);
+        accept(Token.CREATE);
+
+        if (lexer.nextIf(Token.OR)) {
+            accept(Token.REPLACE);
+            stmt.config(SQLCreateTableStatement.Feature.OrReplace);
         }
 
         if (lexer.identifierEquals(FnvHash.Constants.EXTERNAL)) {
@@ -56,7 +59,7 @@ public class OdpsCreateTableParser extends SQLCreateTableParser {
             accept(Token.NOT);
             accept(Token.EXISTS);
 
-            stmt.setIfNotExiists(true);
+            stmt.setIfNotExists(true);
         }
 
         stmt.setName(this.exprParser.name());
@@ -204,6 +207,7 @@ public class OdpsCreateTableParser extends SQLCreateTableParser {
                     case FETCH:
                     case OVER:
                     case DATABASE:
+                    case FUNCTION:
                         column = this.exprParser.parseColumn(stmt);
                         break;
                     default:
@@ -279,6 +283,15 @@ public class OdpsCreateTableParser extends SQLCreateTableParser {
 
                 accept(Token.RPAREN);
                 continue;
+            }
+
+            if (lexer.nextIfIdentifier("AUTO")) {
+                accept(Token.PARTITIONED);
+                accept(Token.BY);
+                accept(Token.LPAREN);
+                stmt.setAutoPartitionedBy(
+                        this.exprParser.aliasedExpr());
+                accept(Token.RPAREN);
             }
 
             if (lexer.identifierEquals(FnvHash.Constants.RANGE)) {

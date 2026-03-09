@@ -16,23 +16,33 @@
 package com.alibaba.druid.sql.dialect.sqlserver.ast;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.ast.SQLTop;
 import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
+import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
 import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.sqlserver.visitor.SQLServerASTVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class SQLServerSelectQueryBlock extends SQLSelectQueryBlock {
-    private SQLServerTop top;
+    private SQLTop top;
+    private List<SQLAssignItem> options = new ArrayList<>();
 
     public SQLServerSelectQueryBlock() {
         dbType = DbType.sqlserver;
     }
 
-    public SQLServerTop getTop() {
+    public SQLTop getTop() {
         return top;
     }
 
-    public void setTop(SQLServerTop top) {
+    public List<SQLAssignItem> getOptions() {
+        return options;
+    }
+
+    public void setTop(SQLTop top) {
         if (top != null) {
             top.setParent(this);
         }
@@ -40,7 +50,7 @@ public class SQLServerSelectQueryBlock extends SQLSelectQueryBlock {
     }
 
     public void setTop(int rowCount) {
-        setTop(new SQLServerTop(new SQLIntegerExpr(rowCount)));
+        setTop(new SQLTop(new SQLIntegerExpr(rowCount)));
     }
 
     @Override

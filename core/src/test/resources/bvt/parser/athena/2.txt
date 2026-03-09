@@ -1,0 +1,23 @@
+select x from unnest(array[1, 2, 3]) t(x)
+--------------------
+SELECT x
+FROM UNNEST(ARRAY[1, 2, 3]) AS t (x)
+------------------------------------------------------------------------------------------------------------------------
+select x from {{ source('dag_datalake_klikpajak', 'efiling_user') }} e
+--------------------
+SELECT x
+FROM {{ source('dag_datalake_klikpajak', 'efiling_user') }} e
+------------------------------------------------------------------------------------------------------------------------
+select day(current_timestamp AT TIME ZONE 'Asia/Jakarta')
+--------------------
+SELECT day(current_timestamp AT TIME ZONE 'Asia/Jakarta')
+------------------------------------------------------------------------------------------------------------------------
+SELECT x from customer c left join attachments at on c.id = at.company_id
+--------------------
+SELECT x
+FROM customer c
+	LEFT JOIN attachments at ON c.id = at.company_id
+------------------------------------------------------------------------------------------------------------------------
+SELECT LAST_VALUE(modified_month) IGNORE NULLS OVER (partition by company_id, product ORDER BY month_id DESC) AS modified_month
+--------------------
+SELECT LAST_VALUE(modified_month) IGNORE NULLS OVER (PARTITION BY company_id, product ORDER BY month_id DESC) AS modified_month

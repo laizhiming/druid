@@ -15,6 +15,7 @@
  */
 package com.alibaba.druid.sql.dialect.phoenix.parser;
 
+import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.parser.Keywords;
 import com.alibaba.druid.sql.parser.Lexer;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
@@ -27,10 +28,9 @@ import java.util.Map;
  * Created by wenshao on 16/9/13.
  */
 public class PhoenixLexer extends Lexer {
-    public static final Keywords DEFAULT_PHOENIX_KEYWORDS;
-
+    public static final Keywords PHOENIX_KEYWORDS;
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
@@ -47,12 +47,17 @@ public class PhoenixLexer extends Lexer {
         map.put("MATCHED", Token.MATCHED);
         map.put("UPSERT", Token.UPSERT);
 
-        DEFAULT_PHOENIX_KEYWORDS = new Keywords(map);
+        PHOENIX_KEYWORDS = new Keywords(map);
+    }
+
+    @Override
+    protected Keywords loadKeywords() {
+        return PHOENIX_KEYWORDS;
     }
 
     public PhoenixLexer(String input, SQLParserFeature... features) {
         super(input);
-        super.keywords = DEFAULT_PHOENIX_KEYWORDS;
+        dbType = DbType.phoenix;
         for (SQLParserFeature feature : features) {
             config(feature, true);
         }

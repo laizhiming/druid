@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLQueryExpr;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerOutput;
-import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.stmt.*;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.stmt.SQLServerExecStatement.SQLServerParameter;
 import com.alibaba.druid.sql.parser.*;
@@ -28,6 +27,8 @@ import com.alibaba.druid.util.FnvHash;
 
 import java.util.Collection;
 import java.util.List;
+
+import static com.alibaba.druid.sql.parser.Token.LITERAL_ALIAS;
 
 public class SQLServerStatementParser extends SQLStatementParser {
     public SQLServerStatementParser(String sql) {
@@ -183,7 +184,7 @@ public class SQLServerStatementParser extends SQLStatementParser {
                                 || lexer.token() == Token.UNIQUE //
                                 || lexer.token() == Token.CHECK //
                                 || lexer.token() == Token.CONSTRAINT) {
-                            SQLConstraint constraint = this.exprParser.parseConstaint();
+                            SQLConstraint constraint = this.exprParser.parseConstraint();
                             constraint.setParent(item);
                             item.getTableElementList().add((SQLTableElement) constraint);
                         } else if (lexer.token() == Token.TABLESPACE) {
@@ -243,7 +244,7 @@ public class SQLServerStatementParser extends SQLStatementParser {
     protected void parseInsert0(SQLInsertInto insert, boolean acceptSubQuery) {
         SQLServerInsertStatement insertStatement = (SQLServerInsertStatement) insert;
 
-        SQLServerTop top = this.getExprParser().parseTop();
+        SQLTop top = this.getExprParser().parseTop();
         if (top != null) {
             insertStatement.setTop(top);
         }
@@ -259,7 +260,7 @@ public class SQLServerStatementParser extends SQLStatementParser {
             insertStatement.setAlias(tableAlias());
         }
 
-        parseInsert0_hinits(insertStatement);
+        parseInsert0Hints(insertStatement, false);
 
         if (lexer.token() == Token.IDENTIFIER && !lexer.stringVal().equalsIgnoreCase("OUTPUT")) {
             insertStatement.setAlias(lexer.stringVal());
@@ -318,7 +319,7 @@ public class SQLServerStatementParser extends SQLStatementParser {
 
         accept(Token.UPDATE);
 
-        SQLServerTop top = this.getExprParser().parseTop();
+        SQLTop top = this.getExprParser().parseTop();
         if (top != null) {
             updateStatement.setTop(top);
         }
@@ -624,5 +625,14 @@ public class SQLServerStatementParser extends SQLStatementParser {
         } else {
             throw new ParserException("TODO : " + lexer.info());
         }
+    }
+
+    protected void alterTableAddRestSpecific(SQLAlterTableStatement stmt) {
+        if (lexer.token() == LITERAL_ALIAS) {
+            SQLAlterTableAddColumn item = parseAlterTableAddColumn();
+            stmt.addItem(item);
+            return;
+        }
+        throw new ParserException("TODO " + lexer.info());
     }
 }

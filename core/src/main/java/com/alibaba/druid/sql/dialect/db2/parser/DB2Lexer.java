@@ -15,19 +15,26 @@
  */
 package com.alibaba.druid.sql.dialect.db2.parser;
 
+import com.alibaba.druid.sql.parser.DialectFeature;
 import com.alibaba.druid.sql.parser.Keywords;
 import com.alibaba.druid.sql.parser.Lexer;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
 import com.alibaba.druid.sql.parser.Token;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DB2Lexer extends Lexer {
-    public static final Keywords DEFAULT_DB2_KEYWORDS;
+import static com.alibaba.druid.sql.parser.DialectFeature.ParserFeature.ParseAssignItemSkip;
 
+public class DB2Lexer extends Lexer {
+    static final Keywords DB2_KEYWORDS;
+    static final DialectFeature DB2_FEATURE = new DialectFeature(
+            Collections.singletonList(ParseAssignItemSkip),
+            null
+    );
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
@@ -42,20 +49,32 @@ public class DB2Lexer extends Lexer {
         map.put("MERGE", Token.MERGE);
         map.put("USING", Token.USING);
         map.put("MATCHED", Token.MATCHED);
+        map.put("IF", Token.IF);
+        map.put("EXISTS", Token.EXISTS);
+        map.put("RESTRICT", Token.RESTRICT);
+        map.put("CASCADE", Token.CASCADE);
 
-        DEFAULT_DB2_KEYWORDS = new Keywords(map);
+        DB2_KEYWORDS = new Keywords(map);
+    }
+
+    @Override
+    protected Keywords loadKeywords() {
+        return DB2_KEYWORDS;
     }
 
     public DB2Lexer(String input) {
         super(input);
-        super.keywords = DEFAULT_DB2_KEYWORDS;
     }
 
     public DB2Lexer(String input, SQLParserFeature... features) {
         super(input);
-        super.keywords = DEFAULT_DB2_KEYWORDS;
         for (SQLParserFeature feature : features) {
             config(feature, true);
         }
+    }
+
+    @Override
+    protected void initDialectFeature() {
+        this.dialectFeature = DB2_FEATURE;
     }
 }

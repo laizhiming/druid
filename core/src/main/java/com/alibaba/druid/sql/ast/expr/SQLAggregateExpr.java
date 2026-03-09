@@ -35,21 +35,33 @@ public class SQLAggregateExpr extends SQLMethodInvokeExpr implements Serializabl
     protected SQLOver over;
     protected SQLName overRef;
     protected SQLOrderBy orderBy;
+    protected SQLExpr limit;
     protected boolean withinGroup;
-    protected Boolean ignoreNulls;
+
+    // For BigQuery scenario.
+    protected boolean ignoreNulls;
+
+    // For BigQuery scenario.
+    protected boolean respectNulls;
 
     public SQLAggregateExpr(String methodName) {
         this.methodName = methodName;
+        this.ignoreNulls = false;
+        this.respectNulls = false;
     }
 
     public SQLAggregateExpr(String methodName, SQLAggregateOption option) {
         this.methodName = methodName;
         this.option = option;
+        this.ignoreNulls = false;
+        this.respectNulls = false;
     }
 
     public SQLAggregateExpr(String methodName, SQLAggregateOption option, SQLExpr... arguments) {
         this.methodName = methodName;
         this.option = option;
+        this.ignoreNulls = false;
+        this.respectNulls = false;
         if (arguments != null) {
             for (SQLExpr argument : arguments) {
                 if (argument != null) {
@@ -63,12 +75,22 @@ public class SQLAggregateExpr extends SQLMethodInvokeExpr implements Serializabl
         return orderBy;
     }
 
-    public void setOrderBy(SQLOrderBy orderBy) {
-        if (orderBy != null) {
-            orderBy.setParent(this);
+    public void setOrderBy(SQLOrderBy x) {
+        if (x != null) {
+            x.setParent(this);
         }
+        this.orderBy = x;
+    }
 
-        this.orderBy = orderBy;
+    public SQLExpr getLimit() {
+        return limit;
+    }
+
+    public void setLimit(SQLExpr x) {
+        if (x != null) {
+            x.setParent(this);
+        }
+        this.limit = x;
     }
 
     public SQLAggregateOption getOption() {
@@ -131,15 +153,23 @@ public class SQLAggregateExpr extends SQLMethodInvokeExpr implements Serializabl
     }
 
     public boolean isIgnoreNulls() {
-        return this.ignoreNulls != null && this.ignoreNulls;
+        return this.ignoreNulls;
     }
 
-    public Boolean getIgnoreNulls() {
+    public boolean getIgnoreNulls() {
         return this.ignoreNulls;
+    }
+
+    public boolean isRespectNulls() {
+        return this.respectNulls;
     }
 
     public void setIgnoreNulls(boolean ignoreNulls) {
         this.ignoreNulls = ignoreNulls;
+    }
+
+    public void setRespectNulls(boolean respectNulls) {
+        this.respectNulls = respectNulls;
     }
 
     public String toString() {
@@ -147,40 +177,38 @@ public class SQLAggregateExpr extends SQLMethodInvokeExpr implements Serializabl
     }
 
     @Override
-    protected void accept0(SQLASTVisitor visitor) {
-        if (visitor.visit(this)) {
+    protected void accept0(SQLASTVisitor v) {
+        if (v.visit(this)) {
             if (this.owner != null) {
-                this.owner.accept(visitor);
+                this.owner.accept(v);
             }
 
             for (SQLExpr arg : this.arguments) {
                 if (arg != null) {
-                    arg.accept(visitor);
+                    arg.accept(v);
                 }
             }
 
             if (this.keep != null) {
-                this.keep.accept(visitor);
+                this.keep.accept(v);
             }
 
             if (this.filter != null) {
-                this.filter.accept(visitor);
+                this.filter.accept(v);
             }
 
             if (this.over != null) {
-                this.over.accept(visitor);
+                this.over.accept(v);
             }
 
             if (this.overRef != null) {
-                this.overRef.accept(visitor);
+                this.overRef.accept(v);
             }
-
-            if (this.orderBy != null) {
-                this.orderBy.accept(visitor);
-            }
+            acceptChild(v, orderBy);
+            acceptChild(v, limit);
         }
 
-        visitor.endVisit(this);
+        v.endVisit(this);
     }
 
     @Override
@@ -243,7 +271,7 @@ public class SQLAggregateExpr extends SQLMethodInvokeExpr implements Serializabl
         if (orderBy != null ? !orderBy.equals(that.orderBy) : that.orderBy != null) {
             return false;
         }
-        return ignoreNulls != null ? ignoreNulls.equals(that.ignoreNulls) : that.ignoreNulls == null;
+        return ignoreNulls == that.ignoreNulls && respectNulls == that.respectNulls;
     }
 
     @Override
@@ -255,7 +283,6 @@ public class SQLAggregateExpr extends SQLMethodInvokeExpr implements Serializabl
         result = 31 * result + (over != null ? over.hashCode() : 0);
         result = 31 * result + (overRef != null ? overRef.hashCode() : 0);
         result = 31 * result + (orderBy != null ? orderBy.hashCode() : 0);
-        result = 31 * result + (ignoreNulls != null ? ignoreNulls.hashCode() : 0);
         return result;
     }
 

@@ -20,7 +20,6 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.oracle.parser.OracleStatementParser;
 import com.alibaba.druid.sql.dialect.oracle.visitor.OracleSchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -35,23 +34,22 @@ public class OracleCreateProcedureTest1 extends OracleTest {
                 " " +
                 "  IF SQL%FOUND THEN" +
                 "    DBMS_OUTPUT.PUT_LINE (" +
-                "      'Delete succeeded for department number ' || dept_no" +
-                "    );" +
+                "      'Delete succeeded for department number');" +
                 "  ELSE" +
-                "    DBMS_OUTPUT.PUT_LINE ('No department number ' || dept_no);" +
+                "    DBMS_OUTPUT.PUT_LINE ('No department number');" +
                 "  END IF;" +
                 "END;" +
                 "/" +
                 "BEGIN" +
                 "  p(270);" +
                 "  p(400);" +
-                "END;"; //
+                "END;";
 
         OracleStatementParser parser = new OracleStatementParser(sql);
         List<SQLStatement> statementList = parser.parseStatementList();
         print(statementList);
 
-        Assert.assertEquals(3, statementList.size());
+        assertEquals(3, statementList.size());
 
         OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();
         for (SQLStatement statement : statementList) {
@@ -64,14 +62,61 @@ public class OracleCreateProcedureTest1 extends OracleTest {
         System.out.println("relationships : " + visitor.getRelationships());
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(1, visitor.getTables().size());
+        assertEquals(1, visitor.getTables().size());
+        assertEquals(1, visitor.getColumns().size());
+        assertEquals(1, visitor.getConditions().size());
+        assertEquals(0, visitor.getRelationships().size());
 
-        Assert.assertTrue(visitor.getTables().containsKey(new TableStat.Name("dept_temp")));
+        assertEquals(1, visitor.getTables().size());
+        assertTrue(visitor.getTables().containsKey(new TableStat.Name("dept_temp")));
+        assertTrue(visitor.getColumns().contains(new TableStat.Column("dept_temp", "department_id")));
+    }
 
-//        Assert.assertEquals(7, visitor.getColumns().size());
-        Assert.assertEquals(1, visitor.getConditions().size());
-        Assert.assertEquals(0, visitor.getRelationships().size());
+    public void test_1() throws Exception {
+        String sql = "CREATE OR REPLACE PROCEDURE p (" +
+                "  dept_no NUMBER" +
+                ") AS " +
+                "BEGIN" +
+                "  DELETE FROM dept_temp" +
+                "  WHERE department_id = dept_no;" +
+                " " +
+                "  IF SQL%NOTFOUND THEN" +
+                "    DBMS_OUTPUT.PUT_LINE (" +
+                "      'No department number');" +
+                "  ELSE" +
+                "    DBMS_OUTPUT.PUT_LINE ('Delete succeeded for department number');" +
+                "  END IF;" +
+                "END;" +
+                "/" +
+                "BEGIN" +
+                "  p(270);" +
+                "  p(400);" +
+                "END;";
 
-        // Assert.assertTrue(visitor.getColumns().contains(new TableStat.Column("employees", "salary")));
+        OracleStatementParser parser = new OracleStatementParser(sql);
+        List<SQLStatement> statementList = parser.parseStatementList();
+        print(statementList);
+
+        assertEquals(3, statementList.size());
+
+        OracleSchemaStatVisitor visitor = new OracleSchemaStatVisitor();
+        for (SQLStatement statement : statementList) {
+            statement.accept(visitor);
+        }
+
+        System.out.println("Tables : " + visitor.getTables());
+        System.out.println("fields : " + visitor.getColumns());
+        System.out.println("coditions : " + visitor.getConditions());
+        System.out.println("relationships : " + visitor.getRelationships());
+        System.out.println("orderBy : " + visitor.getOrderByColumns());
+
+        assertEquals(1, visitor.getTables().size());
+        assertEquals(1, visitor.getColumns().size());
+        assertEquals(1, visitor.getConditions().size());
+        assertEquals(0, visitor.getRelationships().size());
+
+        assertEquals(1, visitor.getTables().size());
+        assertTrue(visitor.getTables().containsKey(new TableStat.Name("dept_temp")));
+        assertTrue(visitor.getColumns().contains(new TableStat.Column("dept_temp", "department_id")));
     }
 }

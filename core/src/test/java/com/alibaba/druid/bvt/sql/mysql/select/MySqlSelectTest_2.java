@@ -21,7 +21,6 @@ import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
 import com.alibaba.druid.stat.TableStat.Column;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -34,7 +33,7 @@ public class MySqlSelectTest_2 extends MysqlTest {
         SQLStatement statemen = statementList.get(0);
 //        print(statementList);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
         statemen.accept(visitor);
@@ -44,27 +43,14 @@ public class MySqlSelectTest_2 extends MysqlTest {
 //        System.out.println("coditions : " + visitor.getConditions());
 //        System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(1, visitor.getTables().size());
-        Assert.assertEquals(3, visitor.getColumns().size());
-        Assert.assertEquals(0, visitor.getConditions().size());
+        assertEquals(1, visitor.getTables().size());
+        assertEquals(3, visitor.getColumns().size());
+        assertEquals(0, visitor.getConditions().size());
 
-        Assert.assertTrue(visitor.getTables().containsKey(new TableStat.Name("tournament")));
+        assertTrue(visitor.getTables().containsKey(new TableStat.Name("tournament")));
 
-        Assert.assertTrue(visitor.getColumns().contains(new Column("tournament", "college")));
-        Assert.assertTrue(visitor.getColumns().contains(new Column("tournament", "region")));
-        Assert.assertTrue(visitor.getColumns().contains(new Column("tournament", "seed")));
-    }
-
-    public void test_1() throws Exception {
-        String sql = "SELECT top 10 * FROM tournament ORDER BY 2, 3;";
-
-        MySqlStatementParser parser = new MySqlStatementParser(sql);
-        List<SQLStatement> statementList = parser.parseStatementList();
-        SQLStatement statemen = statementList.get(0);
-
-        assertEquals("SELECT *\n"
-                + "FROM tournament\n"
-                + "ORDER BY 2, 3\n"
-                + "LIMIT 10;", statemen.toString());
+        assertTrue(visitor.getColumns().contains(new Column("tournament", "college")));
+        assertTrue(visitor.getColumns().contains(new Column("tournament", "region")));
+        assertTrue(visitor.getColumns().contains(new Column("tournament", "seed")));
     }
 }

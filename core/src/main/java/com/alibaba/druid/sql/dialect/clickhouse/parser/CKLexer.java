@@ -1,19 +1,32 @@
 package com.alibaba.druid.sql.dialect.clickhouse.parser;
 
 import com.alibaba.druid.DbType;
+import com.alibaba.druid.sql.parser.DialectFeature;
 import com.alibaba.druid.sql.parser.Keywords;
 import com.alibaba.druid.sql.parser.Lexer;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
 import com.alibaba.druid.sql.parser.Token;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CKLexer extends Lexer {
-    public static final Keywords DEFAULT_KEYWORDS;
+import static com.alibaba.druid.sql.parser.DialectFeature.ParserFeature.*;
 
+public class CKLexer extends Lexer {
+    static final Keywords CK_KEYWORDS;
+    static final DialectFeature CK_FEATURE = new DialectFeature(
+            Arrays.asList(
+                    AsofJoin,
+                    GlobalJoin,
+                    JoinRightTableAlias,
+                    ParseLimitBy,
+                    TableAliasAsof
+            ),
+            null
+    );
     static {
-        Map<String, Token> map = new HashMap<String, Token>();
+        Map<String, Token> map = new HashMap<>();
 
         map.putAll(Keywords.DEFAULT_KEYWORDS.getKeywords());
 
@@ -32,21 +45,33 @@ public class CKLexer extends Lexer {
         map.put("PARTITION", Token.PARTITION);
         map.put("ILIKE", Token.ILIKE);
         map.put("PREWHERE", Token.PREWHERE);
+        map.put("QUALIFY", Token.QUALIFY);
+        map.put("FORMAT", Token.FORMAT);
+        map.put("SETTINGS", Token.SETTINGS);
+        map.put("FINAL", Token.FINAL);
+        map.put("TTL", Token.TTL);
+        map.put("CODEC", Token.CODEC);
+        map.remove("ANY");
 
-        DEFAULT_KEYWORDS = new Keywords(map);
+        CK_KEYWORDS = new Keywords(map);
     }
 
-    public CKLexer(String input) {
-        super(input);
-        dbType = DbType.clickhouse;
-        super.keywords = DEFAULT_KEYWORDS;
+    @Override
+    protected Keywords loadKeywords() {
+        return CK_KEYWORDS;
     }
 
     public CKLexer(String input, SQLParserFeature... features) {
-        super(input);
-        super.keywords = DEFAULT_KEYWORDS;
+        super(input, DbType.clickhouse);
+        this.skipComment = true;
+        this.keepComments = true;
         for (SQLParserFeature feature : features) {
             config(feature, true);
         }
+    }
+
+    @Override
+    protected void initDialectFeature() {
+        this.dialectFeature = CK_FEATURE;
     }
 }

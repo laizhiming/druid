@@ -12,6 +12,7 @@ import java.util.Objects;
 
 public class BigQuerySelectQueryBlock extends SQLSelectQueryBlock
         implements BigQueryObject{
+    protected boolean asStruct;
     private DifferentialPrivacy differentialPrivacy;
 
     public DifferentialPrivacy getDifferentialPrivacy() {
@@ -25,6 +26,14 @@ public class BigQuerySelectQueryBlock extends SQLSelectQueryBlock
         this.differentialPrivacy = x;
     }
 
+    public boolean isAsStruct() {
+        return asStruct;
+    }
+
+    public void setAsStruct(boolean asStruct) {
+        this.asStruct = asStruct;
+    }
+
     @Override
     public void accept0(SQLASTVisitor v) {
         if (v instanceof BigQueryVisitor) {
@@ -35,16 +44,19 @@ public class BigQuerySelectQueryBlock extends SQLSelectQueryBlock
     }
 
     @Override
-    public void accept0(BigQueryVisitor visitor) {
-        if (visitor.visit(this)) {
-            if (differentialPrivacy != null) {
-                differentialPrivacy.accept(visitor);
-            }
-            acceptChild(visitor);
-        }
+    public void accept0(BigQueryVisitor v) {
+        super.accept0(v);
     }
 
-    public static class DifferentialPrivacy extends SQLObjectImpl implements BigQueryObject {
+    protected void acceptChild(SQLASTVisitor v) {
+        if (differentialPrivacy != null) {
+            differentialPrivacy.accept(v);
+        }
+        super.acceptChild(v);
+    }
+
+    public static class DifferentialPrivacy
+            extends SQLObjectImpl implements BigQueryObject {
         private final List<SQLAssignItem> options = new ArrayList<>();
 
         @Override
@@ -93,5 +105,15 @@ public class BigQuerySelectQueryBlock extends SQLSelectQueryBlock
             }
             return x;
         }
+    }
+
+    public BigQuerySelectQueryBlock clone() {
+        BigQuerySelectQueryBlock x = new BigQuerySelectQueryBlock();
+        cloneTo(x);
+        x.asStruct = this.asStruct;
+        if (differentialPrivacy != null) {
+            x.differentialPrivacy = this.differentialPrivacy.clone();
+        }
+        return x;
     }
 }

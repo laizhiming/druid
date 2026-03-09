@@ -22,7 +22,6 @@ import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIntervalExpr;
 import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIntervalType;
-import com.alibaba.druid.sql.dialect.oscar.ast.OscarTop;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.*;
 import com.alibaba.druid.sql.parser.*;
 import com.alibaba.druid.util.FnvHash;
@@ -281,7 +280,7 @@ public class OscarExprParser extends SQLExprParser {
                 }
 
                 String literal = lexer.stringVal();
-                timestamp.setLiteral(literal);
+                timestamp.setValue(literal);
                 accept(Token.LITERAL_CHARS);
 
                 if (lexer.identifierEquals("AT")) {
@@ -307,7 +306,7 @@ public class OscarExprParser extends SQLExprParser {
                 timestamp.setWithTimeZone(true);
 
                 String literal = lexer.stringVal();
-                timestamp.setLiteral(literal);
+                timestamp.setValue(literal);
                 accept(Token.LITERAL_CHARS);
 
                 if (lexer.identifierEquals("AT")) {
@@ -424,38 +423,5 @@ public class OscarExprParser extends SQLExprParser {
             break;
         }
         return alias;
-    }
-
-    public OscarTop parseTop() {
-        if (lexer.token() == Token.TOP) {
-            OscarTop top = new OscarTop();
-            lexer.nextToken();
-
-            boolean paren = false;
-            if (lexer.token() == Token.LPAREN) {
-                paren = true;
-                lexer.nextToken();
-            }
-
-            if (lexer.token() == Token.LITERAL_INT) {
-                top.setExpr(lexer.integerValue().intValue());
-                lexer.nextToken();
-            } else {
-                top.setExpr(primary());
-            }
-
-            if (paren) {
-                accept(Token.RPAREN);
-            }
-
-            if (lexer.token() == Token.PERCENT) {
-                lexer.nextToken();
-                top.setPercent(true);
-            }
-
-            return top;
-        }
-
-        return null;
     }
 }

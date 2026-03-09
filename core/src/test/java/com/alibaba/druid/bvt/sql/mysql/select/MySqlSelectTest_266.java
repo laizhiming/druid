@@ -19,9 +19,7 @@ import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.MysqlTest;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.parser.SQLParserFeature;
-
 
 public class MySqlSelectTest_266 extends MysqlTest {
     public void test_0() throws Exception {
@@ -42,22 +40,22 @@ public class MySqlSelectTest_266 extends MysqlTest {
                 "LIMIT 1\n";
 
         SQLStatement stmt = SQLUtils
-                .parseSingleStatement(sql, DbType.mysql
-                        , SQLParserFeature.KeepSourceLocation
-                        , SQLParserFeature.EnableSQLBinaryOpExprGroup
+                .parseSingleStatement(sql, DbType.mysql,
+                        SQLParserFeature.KeepSourceLocation,
+                        SQLParserFeature.EnableSQLBinaryOpExprGroup
                 );
 
-        assertEquals("EXPLAIN (FORMAT DETAIL) SELECT `customer`.`name`, `max`(`customer`.`custkey`) AS \"MAXKEY\"\n" +
-                "FROM \"CUSTOMER\", ORDERS\n" +
-                "WHERE NOT `CUSTOMER`.`custkey` IN (\n" +
-                "\tSELECT `CUSTKEY`\n" +
-                "\tFROM \"ORDERS\"\n" +
-                "\tWHERE (`CUSTKEY` > 100)\n" +
-                ")\n" +
-                "GROUP BY `NAME`\n" +
-                "ORDER BY `MAXKEY` ASC\n" +
-                "LIMIT 1", stmt.toString());
+        assertEquals(
+            "EXPLAIN (FORMAT DETAIL) SELECT `customer`.`name`, `max`(`customer`.`custkey`) AS \"MAXKEY\"\n"
+                + "FROM \"CUSTOMER\", \"ORDERS\"\n"
+                + "WHERE NOT `CUSTOMER`.`custkey` IN (\n"
+                + "\tSELECT `CUSTKEY`\n"
+                + "\tFROM \"ORDERS\"\n"
+                + "\tWHERE (`CUSTKEY` > 100)\n"
+                + ")\n"
+                + "GROUP BY `NAME`\n"
+                + "ORDER BY `MAXKEY` ASC\n"
+                + "LIMIT 1",
+            stmt.toString());
     }
-
-
 }

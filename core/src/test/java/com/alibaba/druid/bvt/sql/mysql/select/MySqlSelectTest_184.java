@@ -23,7 +23,6 @@ import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
-import com.alibaba.druid.stat.TableStat;
 
 import java.util.List;
 
@@ -64,12 +63,13 @@ public class MySqlSelectTest_184 extends MysqlTest {
         assertTrue(visitor.containsColumn("wenyu_meta_test.WENYU_CONFIG_TEST", "cid"));
 
         String output = SQLUtils.toMySqlString(stmt);
-        assertEquals("SELECT \"B\".\"col_new\"\n" +
-                        "FROM \"wenyu_meta_test\".\"WENBO6_CONFIG_TEST\" \"a\", wenyu_meta_test.\"WENYU_CONFIG_TEST\" \"b\"\n" +
-                        "WHERE A.\"cid\" = B.\"cid\"\n" +
-                        "\tAND A.\"cname\" = B.\"cname\"\n" +
-                        "LIMIT 4", //
-                output);
+        assertEquals(
+            "SELECT \"B\".\"col_new\"\n"
+                + "FROM \"wenyu_meta_test\".\"WENBO6_CONFIG_TEST\" \"a\", \"wenyu_meta_test\".\"WENYU_CONFIG_TEST\" \"b\"\n"
+                + "WHERE A.\"cid\" = B.\"cid\"\n"
+                + "\tAND A.\"cname\" = B.\"cname\"\n"
+                + "LIMIT 4", //
+            output);
     }
 
     public void test_1() throws Exception {

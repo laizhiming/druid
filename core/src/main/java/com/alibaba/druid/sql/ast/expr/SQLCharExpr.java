@@ -82,6 +82,22 @@ public class SQLCharExpr extends SQLTextLiteralExpr implements SQLValuableExpr, 
         return Collections.emptyList();
     }
 
+    public SQLDateExpr toDate() {
+        return new SQLDateExpr(this.text);
+    }
+
+    public SQLDateTimeExpr toDateTime() {
+        return new SQLDateTimeExpr(this.text);
+    }
+
+    public SQLTimestampExpr toTimestamp() {
+        String text = this.text;
+        if (text.length() == 10) {
+            text += " 00:00:00";
+        }
+        return new SQLTimestampExpr(text);
+    }
+
     @Override
     public int compareTo(SQLCharExpr o) {
         return this.text.compareTo(o.text);

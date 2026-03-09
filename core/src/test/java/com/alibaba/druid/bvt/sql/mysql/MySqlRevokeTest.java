@@ -21,7 +21,6 @@ import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.util.JdbcConstants;
-import org.junit.Assert;
 
 import java.util.List;
 
@@ -29,12 +28,11 @@ public class MySqlRevokeTest extends MysqlTest {
     public void test_0() throws Exception {
         String sql = "REVOKE INSERT ON *.* FROM 'jeffrey'@'localhost';";
 
-
         MySqlStatementParser parser = new MySqlStatementParser(sql);
         List<SQLStatement> statementList = parser.parseStatementList();
 //        print(statementList);
 
-        Assert.assertEquals(1, statementList.size());
+        assertEquals(1, statementList.size());
 
         MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
         for (SQLStatement stmt : statementList) {
@@ -46,10 +44,10 @@ public class MySqlRevokeTest extends MysqlTest {
 //        System.out.println("coditions : " + visitor.getConditions());
 //        System.out.println("orderBy : " + visitor.getOrderByColumns());
 
-        Assert.assertEquals(1, visitor.getTables().size());
-        Assert.assertEquals(0, visitor.getColumns().size());
-        Assert.assertEquals(0, visitor.getConditions().size());
-        Assert.assertEquals(0, visitor.getOrderByColumns().size());
+        assertEquals(1, visitor.getTables().size());
+        assertEquals(0, visitor.getColumns().size());
+        assertEquals(0, visitor.getConditions().size());
+        assertEquals(0, visitor.getOrderByColumns().size());
 
         {
             String output = SQLUtils.toSQLString(statementList, JdbcConstants.MYSQL);
@@ -58,10 +56,8 @@ public class MySqlRevokeTest extends MysqlTest {
         }
         {
             String output = SQLUtils.toSQLString(statementList, JdbcConstants.MYSQL, SQLUtils.DEFAULT_LCASE_FORMAT_OPTION);
-            assertEquals("revoke INSERT on *.* from 'jeffrey'@'localhost';", //
+            assertEquals("revoke insert on *.* from 'jeffrey'@'localhost';", //
                     output);
         }
     }
-
-
 }
